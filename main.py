@@ -16,7 +16,7 @@ import threading
 # === SOZLAMALAR ===
 BOT_TOKEN = "SIZNING_BOT_TOKENINGIZ"
 GROQ_API_KEY = "SIZNING_GROQ_API_KEYINGIZ"
-ADMIN_ID = 123456789  # @userinfobot dan oling
+ADMIN_ID = 6557362871  # @userinfobot dan oling
 
 # === DATABASE ===
 def init_db():
