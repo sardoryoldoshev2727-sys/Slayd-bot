@@ -332,7 +332,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif query.data == "referral":
-        ref_link = f"https://t.me/termiz_slayd_bot?start={user.id}"
+        ref_link = f"https://t.me/suvtekin_slayd_bot?start={user.id}"
         await query.edit_message_text(
             f"👥 *Do'st taklif qilish*\n\n"
             f"Sizning link:\n`{ref_link}`\n\n"
@@ -389,7 +389,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f"📝 Mavzu: {mavzu}\n"
                         f"🎨 Shablon: {SHABLONLAR[shablon_key]['nomi']}\n"
                         f"📊 Slayd soni: {len(slides_data)} ta\n\n"
-                        f"💧 @termiz_slayd_bot",
+                        f"💧 @suvtekin_slayd_bot",
                 parse_mode="Markdown"
             )
 
