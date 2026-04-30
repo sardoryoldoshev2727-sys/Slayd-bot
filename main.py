@@ -14,9 +14,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
 # === SOZLAMALAR ===
-BOT_TOKEN = "SIZNING_BOT_TOKENINGIZ"
-GROQ_API_KEY = "SIZNING_GROQ_API_KEYINGIZ"
-ADMIN_ID = 6557362871  # @userinfobot dan oling
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 
 # === DATABASE ===
 def init_db():
