@@ -1,3 +1,6 @@
-python-telegram-bot==20.3
-groq
-python-pptx
+aiogram==3.4.1
+python-pptx==0.6.23
+groq==0.4.2
+httpx==0.27.2
+aiohttp==3.9.3
+Pillow==10.2.0
