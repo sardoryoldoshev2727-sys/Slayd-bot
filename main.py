@@ -1,642 +1,515 @@
+import asyncio
+import io
+import json
 import logging
 import os
-import io
-import sqlite3
-import json
 import random
+import re
+import sqlite3
 
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                            InlineKeyboardMarkup, Message)
 from groq import Groq
 from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.dml.color import RgbColor
+from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
-from pptx.enum.shapes import MSO_SHAPE
+from pptx.util import Inches, Pt
 
 # === SOZLAMALAR ===
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 
+# === NARXLAR ===
+PAKETLAR = {
+    "p2000":  {"nomi": "🥉 Standart", "narx": 2000,  "soni": 1},
+    "p3000":  {"nomi": "🥈 Silver",   "narx": 3000,  "soni": 2},
+    "p5000":  {"nomi": "🥇 Gold",     "narx": 5000,  "soni": 4},
+    "p8000":  {"nomi": "💎 Premium",  "narx": 8000,  "soni": 8},
+    "p10000": {"nomi": "👑 VIP",      "narx": 10000, "soni": 15},
+}
+
+# === 20 TA SHABLON ===
+SHABLONLAR = {
+    "s1":  {"nomi": "💼 Biznes Pro",   "bg": (15,32,67),    "title": (255,215,0),   "text": (255,255,255), "accent": (255,215,0)},
+    "s2":  {"nomi": "🌟 Zamonaviy",   "bg": (10,10,30),    "title": (0,255,200),   "text": (255,255,255), "accent": (0,255,200)},
+    "s3":  {"nomi": "✨ Minimal Oq",  "bg": (255,255,255), "title": (30,30,90),    "text": (50,50,80),    "accent": (41,128,185)},
+    "s4":  {"nomi": "🌿 Tabiat",      "bg": (20,55,35),    "title": (100,220,100), "text": (255,255,255), "accent": (46,204,113)},
+    "s5":  {"nomi": "🚀 Kosmik",      "bg": (5,5,25),      "title": (180,100,255), "text": (255,255,255), "accent": (155,89,182)},
+    "s6":  {"nomi": "🔴 Qizil Kuch",  "bg": (80,10,10),    "title": (255,80,80),   "text": (255,255,255), "accent": (255,80,80)},
+    "s7":  {"nomi": "🌊 Okean",       "bg": (5,30,70),     "title": (100,200,255), "text": (255,255,255), "accent": (52,152,219)},
+    "s8":  {"nomi": "🎨 San'at",      "bg": (40,10,60),    "title": (255,150,255), "text": (255,255,255), "accent": (200,100,255)},
+    "s9":  {"nomi": "🏆 Sport",       "bg": (20,20,20),    "title": (255,150,0),   "text": (255,255,255), "accent": (255,150,0)},
+    "s10": {"nomi": "🏥 Tibbiyot",    "bg": (240,248,255), "title": (0,100,150),   "text": (30,30,80),    "accent": (0,180,150)},
+    "s11": {"nomi": "📚 Ilmiy",       "bg": (245,245,250), "title": (20,60,120),   "text": (40,40,80),    "accent": (41,128,185)},
+    "s12": {"nomi": "🌸 Bahor",       "bg": (255,240,245), "title": (180,50,100),  "text": (80,20,50),    "accent": (220,80,130)},
+    "s13": {"nomi": "🌅 Quyosh",      "bg": (255,250,220), "title": (180,100,0),   "text": (80,50,0),     "accent": (230,150,0)},
+    "s14": {"nomi": "🗿 Tarixiy",     "bg": (60,40,20),    "title": (220,180,100), "text": (255,235,180), "accent": (200,160,80)},
+    "s15": {"nomi": "💻 Texno",       "bg": (5,15,5),      "title": (0,255,50),    "text": (200,255,200), "accent": (0,200,50)},
+    "s16": {"nomi": "🎭 Teatr",       "bg": (30,0,30),     "title": (255,200,0),   "text": (255,240,200), "accent": (200,150,0)},
+    "s17": {"nomi": "❄️ Muzli",       "bg": (220,240,255), "title": (0,80,160),    "text": (20,60,120),   "accent": (100,180,255)},
+    "s18": {"nomi": "🔥 Olov",        "bg": (30,5,0),      "title": (255,120,0),   "text": (255,220,180), "accent": (255,80,0)},
+    "s19": {"nomi": "🌙 Tungi",       "bg": (10,10,40),    "title": (200,200,255), "text": (180,180,240), "accent": (150,150,255)},
+    "s20": {"nomi": "🎓 Ta'lim",      "bg": (250,250,255), "title": (0,50,150),    "text": (30,30,100),   "accent": (0,100,200)},
+}
+
+# === 5 XIL SHRIFT ===
+SHRIFTLAR = {
+    "f1": "Calibri",
+    "f2": "Arial",
+    "f3": "Times New Roman",
+    "f4": "Verdana",
+    "f5": "Georgia",
+}
+
 # === DATABASE ===
 def init_db():
-    conn = sqlite3.connect('bot.db')
+    conn = sqlite3.connect("bot.db")
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (telegram_id INTEGER PRIMARY KEY,
-                  username TEXT,
-                  free_slides INTEGER DEFAULT 2,
-                  total_orders INTEGER DEFAULT 0,
-                  balance INTEGER DEFAULT 0,
-                  referral_by INTEGER DEFAULT 0,
-                  referral_count INTEGER DEFAULT 0)''')
+    c.execute("""CREATE TABLE IF NOT EXISTS users (
+        telegram_id INTEGER PRIMARY KEY,
+        username TEXT,
+        free_slides INTEGER DEFAULT 2,
+        total_orders INTEGER DEFAULT 0,
+        referral_by INTEGER DEFAULT 0
+    )""")
     conn.commit()
     conn.close()
 
-def get_user(telegram_id):
-    conn = sqlite3.connect('bot.db')
+def get_user(tid):
+    conn = sqlite3.connect("bot.db")
     c = conn.cursor()
-    c.execute('SELECT * FROM users WHERE telegram_id = ?', (telegram_id,))
-    user = c.fetchone()
+    c.execute("SELECT * FROM users WHERE telegram_id=?", (tid,))
+    u = c.fetchone()
     conn.close()
-    return user
+    return u
 
-def add_user(telegram_id, username, referral_by=0):
-    conn = sqlite3.connect('bot.db')
+def add_user(tid, username, referral_by=0):
+    conn = sqlite3.connect("bot.db")
     c = conn.cursor()
-    c.execute('INSERT OR IGNORE INTO users (telegram_id, username, referral_by) VALUES (?, ?, ?)',
-              (telegram_id, username, referral_by))
+    c.execute("INSERT OR IGNORE INTO users (telegram_id,username,referral_by) VALUES (?,?,?)",
+              (tid, username, referral_by))
     conn.commit()
     conn.close()
 
-def update_free_slides(telegram_id, count):
-    conn = sqlite3.connect('bot.db')
+def update_free(tid, n):
+    conn = sqlite3.connect("bot.db")
     c = conn.cursor()
-    c.execute('UPDATE users SET free_slides = free_slides + ? WHERE telegram_id = ?', (count, telegram_id))
+    c.execute("UPDATE users SET free_slides=free_slides+? WHERE telegram_id=?", (n, tid))
     conn.commit()
     conn.close()
 
-def use_free_slide(telegram_id):
-    conn = sqlite3.connect('bot.db')
+def use_free(tid):
+    conn = sqlite3.connect("bot.db")
     c = conn.cursor()
-    c.execute('UPDATE users SET free_slides = free_slides - 1 WHERE telegram_id = ?', (telegram_id,))
+    c.execute("UPDATE users SET free_slides=free_slides-1 WHERE telegram_id=?", (tid,))
     conn.commit()
     conn.close()
 
-def add_referral(telegram_id):
-    conn = sqlite3.connect('bot.db')
+def add_order(tid):
+    conn = sqlite3.connect("bot.db")
     c = conn.cursor()
-    c.execute('UPDATE users SET referral_count = referral_count + 1 WHERE telegram_id = ?', (telegram_id,))
+    c.execute("UPDATE users SET total_orders=total_orders+1 WHERE telegram_id=?", (tid,))
     conn.commit()
     conn.close()
 
-# === PAKETLAR ===
-PAKETLAR = {
-    'free': {'name': '🆓 Bepul', 'price': 0, 'slides': 2, 'bet_min': 5, 'bet_max': 5},
-    'mini': {'name': '💎 Mini', 'price': 3000, 'slides': 3, 'bet_min': 5, 'bet_max': 10},
-    'standart': {'name': '🚀 Standart', 'price': 5000, 'slides': 6, 'bet_min': 5, 'bet_max': 12},
-    'pro': {'name': '⭐ Pro', 'price': 8000, 'slides': 10, 'bet_min': 10, 'bet_max': 20},
-    'vip': {'name': '👑 VIP', 'price': 10000, 'slides': 15, 'bet_min': 12, 'bet_max': 25},
-    'mega': {'name': '🔥 MEGA', 'price': 15000, 'slides': 20, 'bet_min': 15, 'bet_max': 30},
-}
+# === GROQ AI ===
+def generate_content(mavzu, soni, bet):
+    client = Groq(api_key=GROQ_API_KEY)
+    prompt = f"""Sen professional taqdimot mutaxassisisiz.
+"{mavzu}" mavzusida {soni} ta slayd uchun kontent yarat.
+Har slaydda {bet} ta bullet point bo'lsin (har biri 1-2 gap, batafsil).
 
-# === 15 TA SHABLON ===
-SHABLONLAR = {
-    1: {'name': '💼 Biznes Klassik', 'bg': '1a1a2e', 'title': 'e94c4c', 'text': 'ffffff', 'accent': 'e94c4c'},
-    2: {'name': '🌟 Zamonaviy', 'bg': '0f3d6e', 'title': 'ffd700', 'text': 'ffffff', 'accent': 'ffd700'},
-    3: {'name': '✨ Minimal Oq', 'bg': 'ffffff', 'title': '2c3e50', 'text': '34495e', 'accent': '3a9bd5'},
-    4: {'name': '🌿 Tabiat', 'bg': '1a3a2a', 'title': '2ecc71', 'text': 'ffffff', 'accent': '2ecc71'},
-    5: {'name': '🚀 Kosmik', 'bg': '0d0d2b', 'title': '9b59b6', 'text': 'ffffff', 'accent': '9b59b6'},
-    6: {'name': '🔥 Energiya', 'bg': '2c0b0e', 'title': 'e74c3c', 'text': 'ffffff', 'accent': 'f39c12'},
-    7: {'name': '💧 Suv', 'bg': '0a3d62', 'title': '00d2ff', 'text': 'ffffff', 'accent': '00d2ff'},
-    8: {'name': '🌙 Tungi', 'bg': '1a1a2e', 'title': 'a29bfe', 'text': 'dfe6e9', 'accent': 'a29bfe'},
-    9: {'name': '🌸 Gul', 'bg': 'fdf2f8', 'title': 'db2777', 'text': '374151', 'accent': 'db2777'},
-    10: {'name': '⚡ Elektr', 'bg': '0f172a', 'title': 'fbbf24', 'text': 'e2e8f0', 'accent': 'fbbf24'},
-    11: {'name': '🏔️ Tog\'', 'bg': '064e3b', 'title': '34d399', 'text': 'ecfdf5', 'accent': '34d399'},
-    12: {'name': '🎨 San\'at', 'bg': '4a044e', 'title': 'e879f9', 'text': 'fae8ff', 'accent': 'e879f9'},
-    13: {'name': '🍎 Olma', 'bg': '7f1d1d', 'title': 'fca5a5', 'text': 'fef2f2', 'accent': 'fca5a5'},
-    14: {'name': '📱 Texno', 'bg': '111827', 'title': '60a5fa', 'text': 'f3f4f6', 'accent': '60a5fa'},
-    15: {'name': '☀️ Quyosh', 'bg': '713f12', 'title': 'fcd34d', 'text': 'fffbeb', 'accent': 'fcd34d'},
-}
+FAQAT JSON qaytar:
+{{
+  "slides": [
+    {{"title": "Sarlavha", "subtitle": "Kichik izoh"}},
+    {{"title": "Sarlavha 2", "bullets": ["Nuqta 1", "Nuqta 2", "Nuqta 3"]}},
+    ...
+  ]
+}}
 
-def hex_to_rgb(hex_color):
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+O'zbek tilida yoz. Birinchi slayd title slide bo'lsin. Professional va batafsil bo'lsin."""
 
-# === SLAYD YARATISH (Mukammal) ===
-def create_pptx(mavzu, slides_data, shablon_ids, num_slides):
+    r = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=4000
+    )
+    text = r.choices[0].message.content
+    m = re.search(r'\{.*\}', text, re.DOTALL)
+    if m:
+        return json.loads(m.group())["slides"]
+    return None
+
+# === SLAYD YARATISH ===
+def make_pptx(mavzu, slides, shablon_key, shrift_key, bet):
+    sh = SHABLONLAR[shablon_key]
+    font = SHRIFTLAR.get(shrift_key, "Calibri")
     prs = Presentation()
-    prs.slide_width = Inches(13.333)
+    prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
 
-    for i in range(num_slides):
-        shablon = SHABLONLAR[shablon_ids[i % len(shablon_ids)]]
-        slide_layout = prs.slide_layouts[6]
-        slide = prs.slides.add_slide(slide_layout)
+    def rgb(t): return RGBColor(*t)
 
-        # Background
-        background = slide.background
-        fill = background.fill
-        fill.solid()
-        r, g, b = hex_to_rgb(shablon['bg'])
-        fill.fore_color.rgb = RgbColor(r, g, b)
+    for i, info in enumerate(slides):
+        sl = prs.slides.add_slide(prs.slide_layouts[6])
 
-        # Yuqori header
-        header = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(1.1)
-        )
-        header.fill.solid()
-        hr, hg, hb = hex_to_rgb(shablon['accent'])
-        header.fill.fore_color.rgb = RgbColor(hr, hg, hb)
-        header.line.fill.background()
+        bg = sl.background.fill
+        bg.solid()
+        bg.fore_color.rgb = rgb(sh["bg"])
 
-        # Shablon nomi
-        header_box = slide.shapes.add_textbox(Inches(0.3), Inches(0.25), Inches(12.7), Inches(0.6))
-        hf = header_box.text_frame
-        hf.text = f"{shablon['name']} | {mavzu}"
-        hp = hf.paragraphs[0]
-        hp.font.size = Pt(13)
-        hp.font.bold = True
-        hp.font.color.rgb = RgbColor(255, 255, 255)
-        hp.alignment = PP_ALIGN.RIGHT
+        bar = sl.shapes.add_shape(1, Inches(0), Inches(0), Inches(0.12), Inches(7.5))
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = rgb(sh["accent"])
+        bar.line.fill.background()
 
-        # Sarlavha
-        title_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.3), Inches(12.333), Inches(0.9))
-        tf = title_box.text_frame
-        title_text = slides_data[i]['title'] if i < len(slides_data) else f"{mavzu} - {i+1}"
-        tf.text = title_text
-        tp = tf.paragraphs[0]
-        tp.font.size = Pt(34)
-        tp.font.bold = True
-        tr, tg, tb = hex_to_rgb(shablon['title'])
-        tp.font.color.rgb = RgbColor(tr, tg, tb)
+        bbar = sl.shapes.add_shape(1, Inches(0), Inches(7.2), Inches(13.33), Inches(0.08))
+        bbar.fill.solid()
+        bbar.fill.fore_color.rgb = rgb(sh["accent"])
+        bbar.line.fill.background()
 
-        # Rasm placeholder (o'ng tomonda)
-        img_box = slide.shapes.add_shape(
-            MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.5), Inches(2.4), Inches(4.3), Inches(3.6)
-        )
-        img_box.fill.solid()
-        ar, ag, ab = hex_to_rgb(shablon['text'])
-        img_box.fill.fore_color.rgb = RgbColor(ar, ag, ab)
-        img_box.line.color.rgb = RgbColor(hr, hg, hb)
-        img_box.line.width = Pt(3)
+        if i == 0:
+            tf = sl.shapes.add_textbox(Inches(1.2), Inches(2), Inches(11), Inches(1.8))
+            p = tf.text_frame.add_paragraph()
+            p.text = info.get("title", mavzu)
+            p.font.size = Pt(48)
+            p.font.bold = True
+            p.font.name = font
+            p.font.color.rgb = rgb(sh["title"])
+            p.alignment = PP_ALIGN.CENTER
 
-        # Placeholder matn
-        ph_box = slide.shapes.add_textbox(Inches(8.8), Inches(3.9), Inches(3.7), Inches(1))
-        phf = ph_box.text_frame
-        phf.text = "🖼️ Rasm joyi"
-        php = phf.paragraphs[0]
-        php.font.size = Pt(18)
-        php.font.color.rgb = RgbColor(255, 255, 255)
-        php.alignment = PP_ALIGN.CENTER
+            tf2 = sl.shapes.add_textbox(Inches(1.2), Inches(4), Inches(11), Inches(1))
+            p2 = tf2.text_frame.add_paragraph()
+            p2.text = info.get("subtitle", "")
+            p2.font.size = Pt(24)
+            p2.font.name = font
+            p2.font.color.rgb = rgb(sh["text"])
+            p2.alignment = PP_ALIGN.CENTER
+        else:
+            tf = sl.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12.5), Inches(1))
+            p = tf.text_frame.add_paragraph()
+            p.text = info.get("title", "")
+            p.font.size = Pt(34)
+            p.font.bold = True
+            p.font.name = font
+            p.font.color.rgb = rgb(sh["title"])
 
-        # Kontent (chap tomonda)
-        content_box = slide.shapes.add_textbox(Inches(0.5), Inches(2.4), Inches(7.5), Inches(4.3))
-        cf = content_box.text_frame
-        cf.word_wrap = True
-        
-        points = slides_data[i].get('points', ['Punkt 1', 'Punkt 2', 'Punkt 3']) if i < len(slides_data) else ['Ma\'lumot yuklanmoqda...']
-        
-        for j, point in enumerate(points):
-            if j == 0:
-                p = cf.paragraphs[0]
-            else:
-                p = cf.add_paragraph()
-            p.text = f"▸ {point}"
-            p.font.size = Pt(19)
-            cr, cg, cb = hex_to_rgb(shablon['text'])
-            p.font.color.rgb = RgbColor(cr, cg, cb)
-            p.space_after = Pt(14)
+            line = sl.shapes.add_shape(1, Inches(0.5), Inches(1.35), Inches(12), Inches(0.05))
+            line.fill.solid()
+            line.fill.fore_color.rgb = rgb(sh["accent"])
+            line.line.fill.background()
 
-        # Pastki chiziq
-        line = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE, Inches(0), Inches(7.15), Inches(13.333), Inches(0.06)
-        )
-        line.fill.solid()
-        line.fill.fore_color.rgb = RgbColor(hr, hg, hb)
-        line.line.fill.background()
+            tf2 = sl.shapes.add_textbox(Inches(0.7), Inches(1.5), Inches(12), Inches(5.5))
+            tf2.text_frame.word_wrap = True
+            first = True
+            for bullet in info.get("bullets", [])[:bet]:
+                if first:
+                    p2 = tf2.text_frame.paragraphs[0]
+                    first = False
+                else:
+                    p2 = tf2.text_frame.add_paragraph()
+                p2.text = f"▸  {bullet}"
+                p2.font.size = Pt(19)
+                p2.font.name = font
+                p2.font.color.rgb = rgb(sh["text"])
+                p2.space_after = Pt(10)
 
-        # Footer
-        footer = slide.shapes.add_textbox(Inches(0.5), Inches(7.25), Inches(12.333), Inches(0.3))
-        ff = footer.text_frame
-        ff.text = f"@suvtekin_slayd_bot | {mavzu} | {i+1}/{num_slides}"
-        fp = ff.paragraphs[0]
-        fp.font.size = Pt(10)
-        fp.font.color.rgb = RgbColor(150, 150, 150)
-        fp.alignment = PP_ALIGN.CENTER
+        wm = sl.shapes.add_textbox(Inches(9), Inches(7.05), Inches(4), Inches(0.4))
+        wp = wm.text_frame.add_paragraph()
+        wp.text = "💧 @suvtekin_slayd_bot"
+        wp.font.size = Pt(9)
+        wp.font.name = font
+        wp.font.color.rgb = rgb(sh["accent"])
+        wp.alignment = PP_ALIGN.RIGHT
 
     buf = io.BytesIO()
     prs.save(buf)
     buf.seek(0)
     return buf
 
-# === GROQ AI ===
-groq_client = Groq(api_key=GROQ_API_KEY)
-
-def generate_content(mavzu, slayd_soni):
-    prompt = f"""Mavzu: "{mavzu}"
-{slayd_soni} ta slayd uchun o'zbek tilida batafsil matn yarat.
-Har bir slayd uchun:
-- Sarlavha (5-7 so'z, qiziqarli)
-- 3-4 ta punkt (har biri 1-2 qator, aniq va tushunarli)
-JSON formatda:
-[{{"title": "...", "points": ["...", "...", "..."]}}, ...]"""
-    
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-        )
-        content = response.choices[0].message.content
-        start = content.find('[')
-        end = content.rfind(']') + 1
-        if start != -1 and end != 0:
-            return json.loads(content[start:end])
-    except Exception as e:
-        print(f"Groq xato: {e}")
-    
-    return [{"title": f"{mavzu} - {i+1}", "points": ["Ma'lumot yuklanmoqda...", "Punkt 2", "Punkt 3"]} for i in range(slayd_soni)]
+# === STATE ===
+class Order(StatesGroup):
+    bet = State()
+    shrift = State()
+    mavzu = State()
+    shablon = State()
 
 # === BOT ===
+logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-class OrderState(StatesGroup):
-    waiting_topic = State()
-    selecting_bet = State()
-    selecting_template = State()
-
-def main_menu():
+def main_kb(free):
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("🆓 Bepul slayd (2 ta)", callback_data="paket_free")],
-        [
-            InlineKeyboardButton("💎 Mini — 3 000", callback_data="paket_mini"),
-            InlineKeyboardButton("🚀 Standart — 5 000", callback_data="paket_standart"),
-        ],
-        [
-            InlineKeyboardButton("⭐ Pro — 8 000", callback_data="paket_pro"),
-            InlineKeyboardButton("👑 VIP — 10 000", callback_data="paket_vip"),
-        ],
-        [InlineKeyboardButton("🔥 MEGA (20 ta) — 15 000", callback_data="paket_mega")],
-        [InlineKeyboardButton("👤 Kabinet", callback_data="kabinet")],
+        [InlineKeyboardButton(text=f"🆓 Bepul ({free} ta)", callback_data="bepul")],
+        [InlineKeyboardButton(text="🥉 2,000 so'm — 1 ta", callback_data="p2000"),
+         InlineKeyboardButton(text="🥈 3,000 so'm — 2 ta", callback_data="p3000")],
+        [InlineKeyboardButton(text="🥇 5,000 so'm — 4 ta", callback_data="p5000"),
+         InlineKeyboardButton(text="💎 8,000 so'm — 8 ta", callback_data="p8000")],
+        [InlineKeyboardButton(text="👑 10,000 so'm — 15 ta", callback_data="p10000")],
+        [InlineKeyboardButton(text="👥 Do'st taklif", callback_data="referral"),
+         InlineKeyboardButton(text="👤 Kabinet", callback_data="kabinet")],
     ])
-
-def bet_keyboard(min_bet, max_bet):
-    buttons = []
-    row = []
-    for i in range(min_bet, max_bet + 1):
-        row.append(InlineKeyboardButton(str(i), callback_data=f"bet_{i}"))
-        if len(row) == 5:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
-    buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-def template_keyboard(selected=None):
-    if selected is None:
-        selected = []
-    buttons = []
-    for i in range(1, 16):
-        shablon = SHABLONLAR[i]
-        status = "✅" if i in selected else "⬜"
-        text = f"{status} #{i} {shablon['name']}"
-        buttons.append([InlineKeyboardButton(text, callback_data=f"shablon_{i}")])
-    buttons.append([
-        InlineKeyboardButton("✅ Tasdiqlash", callback_data="shablon_confirm"),
-        InlineKeyboardButton("🔄 Tozalash", callback_data="shablon_clear"),
-    ])
-    buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="back_paket")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     user = message.from_user
     args = message.text.split()
-    
-    referral_by = 0
-    if len(args) > 1:
-        try:
-            referral_by = int(args[1])
-        except:
-            pass
-    
+    referral_by = int(args[1]) if len(args) > 1 and args[1].isdigit() else 0
+
     add_user(user.id, user.username or user.first_name, referral_by)
-    
+
     if referral_by and referral_by != user.id:
-        referrer = get_user(referral_by)
-        if referrer and referrer[6] < 3:  # referral_count < 3
-            update_free_slides(referral_by, 1)
-            update_free_slides(user.id, 1)
-            add_referral(referral_by)
-            try:
-                await bot.send_message(referral_by, "🎁 Do'stingiz botga kirdi! +1 bepul slayd sizga ham, unga ham berildi!")
-            except:
-                pass
+        update_free(referral_by, 1)
+        update_free(user.id, 1)
+        try:
+            await bot.send_message(referral_by, "🎁 Do'stingiz kirdi! +1 bepul slayd!")
+        except: pass
 
-    db_user = get_user(user.id)
-    free_count = db_user[2] if db_user else 2
+    db = get_user(user.id)
+    free = db[2] if db else 2
 
     await message.answer(
-        f"💧 *Suv Tekin Slayd Bot*\n\n"
-        f"Assalomu alaykum, {user.first_name}! 👋\n\n"
-        f"🎁 Sizda *{free_count} ta bepul slayd* bor!\n\n"
-        f"📦 *Paketlar:*\n"
-        f"• 🆓 Bepul — 2 ta slayd\n"
-        f"• 💎 Mini — 3,000 so'm (3 ta)\n"
-        f"• 🚀 Standart — 5,000 so'm (6 ta)\n"
-        f"• ⭐ Pro — 8,000 so'm (10 ta)\n"
-        f"• 👑 VIP — 10,000 so'm (15 ta)\n"
-        f"• 🔥 MEGA — 15,000 so'm (20 ta)\n\n"
-        f"👇 Pastdan tanlang:",
-        parse_mode="Markdown",
-        reply_markup=main_menu()
+        f"💧 <b>Suv Tekin Slayd Bot</b>\n\n"
+        f"Salom, {user.first_name}! 👋\n\n"
+        f"🎁 Bepul slayd: <b>{free} ta</b>\n\n"
+        f"📦 <b>Paketlar:</b>\n"
+        f"• 2,000 → 1 ta slayd\n"
+        f"• 3,000 → 2 ta slayd\n"
+        f"• 5,000 → 4 ta slayd\n"
+        f"• 8,000 → 8 ta slayd\n"
+        f"• 10,000 → 15 ta slayd\n\n"
+        f"Har buyurtmada <b>3 xil dizayn</b> chiqadi! 🎨\n\n"
+        f"👇 Tanlang:",
+        parse_mode="HTML",
+        reply_markup=main_kb(free)
     )
 
-@dp.callback_query(F.data.startswith("paket_"))
-async def paket_select(callback: CallbackQuery, state: FSMContext):
-    paket = callback.data.replace("paket_", "")
-    
-    if paket not in PAKETLAR:
-        await callback.answer("❌ Xato!", show_alert=True)
+@dp.callback_query(F.data == "bepul")
+async def cb_bepul(call: CallbackQuery, state: FSMContext):
+    db = get_user(call.from_user.id)
+    if not db or db[2] <= 0:
+        await call.answer("❌ Bepul slayd tugagan!", show_alert=True)
         return
-    
-    data = PAKETLAR[paket]
-    
-    if paket == 'free':
-        db_user = get_user(callback.from_user.id)
-        if not db_user or db_user[2] <= 0:
-            await callback.answer("❌ Bepul slaydlaringiz tugagan!", show_alert=True)
-            return
-        
-        await state.set_state(OrderState.waiting_topic)
-        await state.update_data(
-            paket='free',
-            slides=data['slides'],
-            bet=5,
-            price=0,
-            shablonlar=random.sample(range(1, 16), 3),
-            is_free=True
-        )
-        await callback.message.edit_text(
-            "🆓 *Bepul Slayd*\n\n"
-            "📝 Slayd mavzusini yozing:\n"
-            "_(Masalan: O'zbekiston tarixi)_",
-            parse_mode="Markdown"
-        )
-        return
-    
-    await state.set_state(OrderState.selecting_bet)
-    await state.update_data(paket=paket, **data)
-    
-    await callback.message.edit_text(
-        f"{data['name']} Paket\n\n"
-        f"💰 Narx: *{data['price']:,} so'm*\n"
-        f"📊 Slayd: *{data['slides']} ta*\n\n"
-        f"📄 *Nechta bet tanlaysiz?*\n"
-        f"({data['bet_min']} - {data['bet_max']})",
-        parse_mode="Markdown",
-        reply_markup=bet_keyboard(data['bet_min'], data['bet_max'])
+    await state.update_data(paket="bepul", soni=1)
+    rows = [[InlineKeyboardButton(text=str(i), callback_data=f"bet_{i}") for i in range(5, 11)]]
+    await call.message.edit_text(
+        "🆓 <b>Bepul paket</b>\n\n📄 Nechta bet? (5-10)",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
 
-@dp.callback_query(OrderState.selecting_bet, F.data.startswith("bet_"))
-async def process_bet(callback: CallbackQuery, state: FSMContext):
-    bet = int(callback.data.replace("bet_", ""))
+@dp.callback_query(F.data.in_(set(PAKETLAR.keys())))
+async def cb_paket(call: CallbackQuery, state: FSMContext):
+    p = PAKETLAR[call.data]
+    await state.update_data(paket=call.data, soni=p["soni"])
+    rows = []
+    row = []
+    for i in range(5, 31):
+        row.append(InlineKeyboardButton(text=str(i), callback_data=f"bet_{i}"))
+        if len(row) == 5:
+            rows.append(row)
+            row = []
+    if row: rows.append(row)
+    await call.message.edit_text(
+        f"{p['nomi']} — <b>{p['narx']:,} so'm</b>\n"
+        f"📊 Slayd: <b>{p['soni']} ta</b>\n\n"
+        f"📄 <b>Nechta bet?</b> (5-30)",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
+    )
+
+@dp.callback_query(F.data.startswith("bet_"))
+async def cb_bet(call: CallbackQuery, state: FSMContext):
+    bet = int(call.data.split("_")[1])
     await state.update_data(bet=bet)
-    await state.set_state(OrderState.selecting_template)
-    await state.update_data(selected_shablonlar=[])
-    
-    await callback.message.edit_text(
-        "🎨 *15 ta shablondan 3 ta tanlang*\n\n"
-        "Har bir shablonni bosing va \"Tasdiqlash\" ni bosing:\n\n"
-        "⬜ = Tanlanmagan\n"
-        "✅ = Tanlangan",
-        parse_mode="Markdown",
-        reply_markup=template_keyboard()
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Calibri", callback_data="font_f1"),
+         InlineKeyboardButton(text="Arial", callback_data="font_f2")],
+        [InlineKeyboardButton(text="Times New Roman", callback_data="font_f3")],
+        [InlineKeyboardButton(text="Verdana", callback_data="font_f4"),
+         InlineKeyboardButton(text="Georgia", callback_data="font_f5")],
+    ])
+    await call.message.edit_text(
+        f"✅ Bet: <b>{bet} ta</b>\n\n🔤 <b>Shrift tanlang:</b>",
+        parse_mode="HTML",
+        reply_markup=kb
     )
 
-@dp.callback_query(OrderState.selecting_template, F.data.startswith("shablon_"))
-async def process_shablon(callback: CallbackQuery, state: FSMContext):
+@dp.callback_query(F.data.startswith("font_"))
+async def cb_font(call: CallbackQuery, state: FSMContext):
+    shrift = call.data.replace("font_", "")
+    await state.update_data(shrift=shrift)
     data = await state.get_data()
-    selected = data.get('selected_shablonlar', [])
-    
-    if callback.data == "shablon_confirm":
-        if len(selected) != 3:
-            await callback.answer(f"❌ 3 ta tanlash kerak! (Hozir: {len(selected)})", show_alert=True)
-            return
-        
-        await state.set_state(OrderState.waiting_topic)
-        await callback.message.edit_text(
-            f"✅ *Tanlangan shablonlar:*\n"
-            f"{chr(10).join([f'🎨 #{s} {SHABLONLAR[s][\"name\"]}' for s in selected])}\n\n"
-            f"📝 *Mavzuni yozing:*\n"
-            f"Masalan: \"O'zbekiston iqtisodiyoti\"",
-            parse_mode="Markdown"
+
+    if data.get("paket") == "bepul":
+        await state.set_state(Order.mavzu)
+        await call.message.edit_text(
+            "📝 <b>Mavzuni yozing:</b>\n<i>(Masalan: O'zbekiston tarixi)</i>",
+            parse_mode="HTML"
         )
-        return
-    
-    if callback.data == "shablon_clear":
-        await state.update_data(selected_shablonlar=[])
-        await callback.message.edit_reply_markup(reply_markup=template_keyboard())
-        return
-    
-    shablon_num = int(callback.data.replace("shablon_", ""))
-    
-    if shablon_num in selected:
-        selected.remove(shablon_num)
     else:
-        if len(selected) < 3:
-            selected.append(shablon_num)
-        else:
-            await callback.answer("❌ Faqat 3 ta!", show_alert=True)
-            return
-    
-    await state.update_data(selected_shablonlar=selected)
-    await callback.message.edit_reply_markup(reply_markup=template_keyboard(selected))
+        p = PAKETLAR[data["paket"]]
+        await call.message.edit_text(
+            f"💳 <b>To'lov</b>\n\n"
+            f"📦 {p['nomi']}: <b>{p['narx']:,} so'm</b>\n\n"
+            f"📱 Payme/Click: <b>+998 XX XXX XX XX</b>\n"
+            f"<i>(Izohga Telegram ID: {call.from_user.id})</i>\n\n"
+            f"To'lovdan so'ng admin tasdiqlaydi!",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ To'lov qildim", callback_data="tolov_qildim")]
+            ])
+        )
 
-@dp.message(OrderState.waiting_topic)
-async def process_topic(message: Message, state: FSMContext):
-    topic = message.text
+@dp.callback_query(F.data == "tolov_qildim")
+async def cb_tolov(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    await state.update_data(topic=topic)
-    
-    if data.get('is_free'):
-        await create_and_send_slides(message, state)
-        return
-    
-    selected = data['selected_shablonlar']
-    await message.answer(
-        f"📋 *Buyurtma tasdiqlash*\n\n"
-        f"📦 {data['name']}\n"
-        f"📝 Mavzu: *{topic}*\n"
-        f"📄 Bet: *{data['bet']} ta*\n"
-        f"🎨 Shablonlar: *{', '.join([f'#{s}' for s in selected])}*\n"
-        f"💰 Narx: *{data['price']:,} so'm*\n\n"
-        f"To'g'rimi?",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton("✅ Ha, to'g'ri", callback_data="confirm_yes")],
-            [InlineKeyboardButton("🔄 Qayta tanlash", callback_data="confirm_no")],
-        ])
-    )
-
-async def create_and_send_slides(message_or_callback, state: FSMContext):
-    data = await state.get_data()
-    user_id = message_or_callback.from_user.id if hasattr(message_or_callback, 'from_user') else message_or_callback.chat.id
-    
-    msg = await message_or_callback.answer("⏳ Slayd tayyorlanmoqda...") if hasattr(message_or_callback, 'answer') else await bot.send_message(user_id, "⏳ Slayd tayyorlanmoqda...")
-    
-    try:
-        topic = data['topic']
-        num_slides = data['slides']
-        shablonlar = data.get('selected_shablonlar', random.sample(range(1, 16), 3))
-        
-        await msg.edit_text("🤖 AI matn yaratmoqda...")
-        slides_data = generate_content(topic, num_slides)
-        
-        await msg.edit_text("🎨 Slaydlar yaratilmoqda...")
-        
-        for sid in shablonlar:
-            pptx_file = create_pptx(topic, slides_data, [sid], num_slides)
-            
-            caption = f"✅ *{topic}*\n🎨 Shablon: #{sid} {SHABLONLAR[sid]['name']}\n📄 {num_slides} ta slayd"
-            
-            if hasattr(message_or_callback, 'answer_document'):
-                await message_or_callback.answer_document(
-                    FSInputFile(pptx_file, filename=f"{topic[:30]}_{sid}.pptx"),
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-            else:
-                await bot.send_document(
-                    user_id,
-                    FSInputFile(pptx_file, filename=f"{topic[:30]}_{sid}.pptx"),
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-        
-        if data.get('is_free'):
-            use_free_slide(user_id)
-            db_user = get_user(user_id)
-            remaining = db_user[2] if db_user else 0
-            await bot.send_message(
-                user_id,
-                f"✅ Tayyor! Qolgan bepul: *{remaining}* ta",
-                parse_mode="Markdown",
-                reply_markup=main_menu()
-            )
-        else:
-            await bot.send_message(
-                user_id,
-                "✅ Buyurtma tayyor! To'lov tasdiqlangandan keyin yuboriladi.",
-                parse_mode="Markdown",
-                reply_markup=main_menu()
-            )
-        
-        await msg.delete()
-        
-    except Exception as e:
-        await msg.edit_text(f"❌ Xatolik: {str(e)}")
-    
-    await state.clear()
-
-@dp.callback_query(F.data == "confirm_yes")
-async def confirm_yes(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    await create_and_send_slides(callback, state)
-
-@dp.callback_query(F.data == "confirm_no")
-async def confirm_no(callback: CallbackQuery, state: FSMContext):
-    await state.set_state(OrderState.selecting_template)
-    await state.update_data(selected_shablonlar=[])
-    await callback.message.edit_text(
-        "🎨 *Qayta tanlash*\n\n"
-        "15 ta shablondan 3 ta tanlang:",
-        parse_mode="Markdown",
-        reply_markup=template_keyboard()
-    )
-
-@dp.callback_query(F.data == "back_main")
-async def back_main(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await cmd_start(callback.message, state)
-
-@dp.callback_query(F.data == "back_paket")
-async def back_paket(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text(
-        "🎓 *Suv💧Tekin 💙SLAYD*\n\n"
-        "Quyidagilardan tanlang:",
-        parse_mode="Markdown",
-        reply_markup=main_menu()
-    )
-
-@dp.callback_query(F.data == "kabinet")
-async def kabinet(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    db_user = get_user(user_id)
-    
-    free = db_user[2] if db_user else 0
-    orders = db_user[4] if db_user else 0
-    referral = db_user[6] if db_user else 0
-    
-    await callback.message.edit_text(
-        f"👤 *Sizning kabinetingiz*\n\n"
-        f"🆔 ID: `{user_id}`\n"
-        f"🆓 Bepul slaydlar: *{free} ta*\n"
-        f"📦 Jami buyurtmalar: *{orders} ta*\n"
-        f"👥 Do'st keltirgan: *{referral} ta*\n\n"
-        f"💡 Do'st keltirsangiz, +1 bepul slayd!",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton("👥 Do'st taklif qilish", callback_data="referral")],
-            [InlineKeyboardButton("⬅️ Asosiy menyu", callback_data="back_main")],
-        ])
+    p = PAKETLAR.get(data.get("paket"), {})
+    if ADMIN_ID:
+        await bot.send_message(
+            ADMIN_ID,
+            f"🆕 <b>Yangi buyurtma!</b>\n\n"
+            f"👤 ID: <code>{call.from_user.id}</code>\n"
+            f"👤 Ism: {call.from_user.first_name}\n"
+            f"📦 Paket: {p.get('nomi')} — {p.get('narx',0):,} so'm\n\n"
+            f"✅ Tasdiqlash: <code>/tolov {call.from_user.id} {data.get('paket')}</code>",
+            parse_mode="HTML"
+        )
+    await state.set_state(Order.mavzu)
+    await call.message.edit_text(
+        "✅ <b>So'rov yuborildi!</b>\n\nAdmin tasdiqlashini kuting.\n\n📝 <b>Mavzuni yozing:</b>",
+        parse_mode="HTML"
     )
 
 @dp.callback_query(F.data == "referral")
-async def referral(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    bot_info = await bot.get_me()
-    link = f"https://t.me/{bot_info.username}?start={user_id}"
-    
-    await callback.message.edit_text(
-        f"👥 *Do'st taklif qilish*\n\n"
-        f"Sizning link:\n`{link}`\n\n"
-        f"Do'stingiz shu link orqali kirsa:\n"
-        f"🎁 Sizga: +1 bepul slayd\n"
-        f"🎁 Do'stingizga: +1 bepul slayd\n\n"
-        f"Maksimum: 5 ta bepul slayd!",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton("📤 Ulashish", url=f"https://t.me/share/url?url={link}&text=🎓 Professional slayd bot!")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="kabinet")],
-        ])
+async def cb_referral(call: CallbackQuery):
+    link = f"https://t.me/suvtekin_slayd_bot?start={call.from_user.id}"
+    await call.message.edit_text(
+        f"👥 <b>Do'st taklif</b>\n\n"
+        f"Sizning link:\n<code>{link}</code>\n\n"
+        f"🎁 Do'st kirsa — ikkalangizga +1 bepul slayd!",
+        parse_mode="HTML"
     )
+
+@dp.callback_query(F.data == "kabinet")
+async def cb_kabinet(call: CallbackQuery):
+    db = get_user(call.from_user.id)
+    free = db[2] if db else 0
+    orders = db[3] if db else 0
+    await call.message.edit_text(
+        f"👤 <b>Kabinet</b>\n\n"
+        f"🆔 ID: <code>{call.from_user.id}</code>\n"
+        f"💧 Bepul: <b>{free} ta</b>\n"
+        f"📦 Buyurtmalar: <b>{orders} ta</b>",
+        parse_mode="HTML"
+    )
+
+@dp.message(Order.mavzu)
+async def get_mavzu(message: Message, state: FSMContext):
+    await state.update_data(mavzu=message.text)
+    rows = []
+    row = []
+    for k, v in SHABLONLAR.items():
+        row.append(InlineKeyboardButton(text=v["nomi"], callback_data=f"sh_{k}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row: rows.append(row)
+    await message.answer(
+        f"✅ Mavzu: <b>{message.text}</b>\n\n"
+        f"🎨 <b>20 ta shablondan birini tanlang:</b>\n"
+        f"<i>(Biz 3 xil dizayn yuboramiz!)</i>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
+    )
+
+@dp.callback_query(F.data.startswith("sh_"))
+async def cb_shablon(call: CallbackQuery, state: FSMContext):
+    shablon_key = call.data.replace("sh_", "")
+    data = await state.get_data()
+    mavzu = data.get("mavzu", "")
+    soni = data.get("soni", 1)
+    bet = data.get("bet", 5)
+    shrift = data.get("shrift", "f1")
+
+    await call.message.edit_text(
+        f"⏳ <b>Slaydlar yaratilmoqda...</b>\n\n"
+        f"📝 Mavzu: {mavzu}\n"
+        f"📊 Slayd: {soni} ta | 📄 Bet: {bet} ta\n"
+        f"🤖 AI kontent tayyorlamoqda...",
+        parse_mode="HTML"
+    )
+
+    try:
+        slides = generate_content(mavzu, soni, bet)
+        if not slides:
+            await bot.send_message(call.from_user.id, "❌ Xatolik! Qayta urinib ko'ring.")
+            return
+
+        keys = list(SHABLONLAR.keys())
+        chosen = [shablon_key]
+        other = [k for k in keys if k != shablon_key]
+        chosen += random.sample(other, min(2, len(other)))
+
+        for key in chosen:
+            pptx = make_pptx(mavzu, slides, key, shrift, bet)
+            sh_name = SHABLONLAR[key]["nomi"]
+            await bot.send_document(
+                call.from_user.id,
+                document=(f"{mavzu[:15]}_{sh_name}.pptx", pptx),
+                caption=f"✅ <b>{mavzu}</b>\n🎨 {sh_name}\n📄 {len(slides)} slayd | {bet} bet\n\n💧 @suvtekin_slayd_bot",
+                parse_mode="HTML"
+            )
+
+        if data.get("paket") == "bepul":
+            use_free(call.from_user.id)
+        add_order(call.from_user.id)
+        await state.clear()
+
+        db = get_user(call.from_user.id)
+        free = db[2] if db else 0
+        await bot.send_message(
+            call.from_user.id,
+            "🎉 <b>Tayyor!</b> Slaydlaringiz yuborildi!\n\n👇 Yana buyurtma:",
+            parse_mode="HTML",
+            reply_markup=main_kb(free)
+        )
+
+    except Exception as e:
+        await bot.send_message(call.from_user.id, f"❌ Xatolik: {e}")
 
 @dp.message(Command("tolov"))
-async def admin_tolov(message: Message):
+async def cmd_tolov(message: Message):
     if message.from_user.id != ADMIN_ID:
         return
-    
-    args = message.text.split()
-    if len(args) < 3:
-        await message.answer("Ishlatish: /tolov <user_id> <paket>")
+    parts = message.text.split()
+    if len(parts) < 3:
+        await message.answer("Format: /tolov <user_id> <paket>")
         return
-    
-    user_id = int(args[1])
-    paket = args[2]
-    
-    if paket not in PAKETLAR:
-        await message.answer("❌ Noto'g'ri paket!")
-        return
-    
-    soni = PAKETLAR[paket]['slides']
-    update_free_slides(user_id, soni)
-    
+    uid = int(parts[1])
+    paket = parts[2]
+    soni = PAKETLAR.get(paket, {}).get("soni", 0)
+    update_free(uid, soni)
     await bot.send_message(
-        user_id,
-        f"✅ To'lovingiz tasdiqlandi!\n\n"
-        f"🎁 Sizga *{soni} ta slayd* qo'shildi!\n\n"
-        f"Endi /start bosing va slayd yarating!",
-        parse_mode="Markdown"
+        uid,
+        f"✅ <b>To'lovingiz tasdiqlandi!</b>\n\n"
+        f"🎁 <b>{soni} ta slayd</b> qo'shildi!\n\n"
+        f"📝 Mavzuni yozing:",
+        parse_mode="HTML"
     )
-    await message.answer(f"✅ {user_id} ga {soni} ta slayd qo'shildi!")
+    await message.answer(f"✅ {uid} ga {soni} ta slayd berildi!")
 
 async def main():
-    if not BOT_TOKEN:
-        print("❌ BOT_TOKEN topilmadi!")
-        return
-    
     init_db()
-    print("🤖 Bot ishga tushmoqda...")
+    print("✅ SuvTekin Slayd Bot ishga tushdi!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
