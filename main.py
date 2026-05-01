@@ -21,10 +21,13 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
-# === SOZLAMALAR ===
+# === RAILWAY ENVIRONMENT ===
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
+
+# Railway avtomatik PORT beradi
+PORT = int(os.environ.get("PORT", "8080"))
 
 # === NARXLAR ===
 PAKETLAR = {
@@ -35,28 +38,28 @@ PAKETLAR = {
     "p10000": {"nomi": "👑 VIP",      "narx": 10000, "soni": 15},
 }
 
-# === 20 TA SHABLON ===
+# === 20 TA PROFESSIONAL SHABLON (2026) ===
 SHABLONLAR = {
-    "s1":  {"nomi": "💼 Biznes Pro",   "bg": (15,32,67),    "title": (255,215,0),   "text": (255,255,255), "accent": (255,215,0)},
-    "s2":  {"nomi": "🌟 Zamonaviy",   "bg": (10,10,30),    "title": (0,255,200),   "text": (255,255,255), "accent": (0,255,200)},
-    "s3":  {"nomi": "✨ Minimal Oq",  "bg": (255,255,255), "title": (30,30,90),    "text": (50,50,80),    "accent": (41,128,185)},
-    "s4":  {"nomi": "🌿 Tabiat",      "bg": (20,55,35),    "title": (100,220,100), "text": (255,255,255), "accent": (46,204,113)},
-    "s5":  {"nomi": "🚀 Kosmik",      "bg": (5,5,25),      "title": (180,100,255), "text": (255,255,255), "accent": (155,89,182)},
-    "s6":  {"nomi": "🔴 Qizil Kuch",  "bg": (80,10,10),    "title": (255,80,80),   "text": (255,255,255), "accent": (255,80,80)},
-    "s7":  {"nomi": "🌊 Okean",       "bg": (5,30,70),     "title": (100,200,255), "text": (255,255,255), "accent": (52,152,219)},
-    "s8":  {"nomi": "🎨 San'at",      "bg": (40,10,60),    "title": (255,150,255), "text": (255,255,255), "accent": (200,100,255)},
-    "s9":  {"nomi": "🏆 Sport",       "bg": (20,20,20),    "title": (255,150,0),   "text": (255,255,255), "accent": (255,150,0)},
-    "s10": {"nomi": "🏥 Tibbiyot",    "bg": (240,248,255), "title": (0,100,150),   "text": (30,30,80),    "accent": (0,180,150)},
-    "s11": {"nomi": "📚 Ilmiy",       "bg": (245,245,250), "title": (20,60,120),   "text": (40,40,80),    "accent": (41,128,185)},
-    "s12": {"nomi": "🌸 Bahor",       "bg": (255,240,245), "title": (180,50,100),  "text": (80,20,50),    "accent": (220,80,130)},
-    "s13": {"nomi": "🌅 Quyosh",      "bg": (255,250,220), "title": (180,100,0),   "text": (80,50,0),     "accent": (230,150,0)},
-    "s14": {"nomi": "🗿 Tarixiy",     "bg": (60,40,20),    "title": (220,180,100), "text": (255,235,180), "accent": (200,160,80)},
-    "s15": {"nomi": "💻 Texno",       "bg": (5,15,5),      "title": (0,255,50),    "text": (200,255,200), "accent": (0,200,50)},
-    "s16": {"nomi": "🎭 Teatr",       "bg": (30,0,30),     "title": (255,200,0),   "text": (255,240,200), "accent": (200,150,0)},
-    "s17": {"nomi": "❄️ Muzli",       "bg": (220,240,255), "title": (0,80,160),    "text": (20,60,120),   "accent": (100,180,255)},
-    "s18": {"nomi": "🔥 Olov",        "bg": (30,5,0),      "title": (255,120,0),   "text": (255,220,180), "accent": (255,80,0)},
-    "s19": {"nomi": "🌙 Tungi",       "bg": (10,10,40),    "title": (200,200,255), "text": (180,180,240), "accent": (150,150,255)},
-    "s20": {"nomi": "🎓 Ta'lim",      "bg": (250,250,255), "title": (0,50,150),    "text": (30,30,100),   "accent": (0,100,200)},
+    "s1":  {"nomi": "💼 Biznes Pro",     "bg": (16,24,39),    "title": (250,204,21),  "text": (243,244,246), "accent": (250,204,21)},
+    "s2":  {"nomi": "🏢 Korporativ",     "bg": (255,255,255), "title": (17,24,39),    "text": (55,65,81),    "accent": (37,99,235)},
+    "s3":  {"nomi": "📊 Startup",        "bg": (15,23,42),    "title": (56,189,248),  "text": (203,213,225), "accent": (14,165,233)},
+    "s4":  {"nomi": "🎨 Kreativ",        "bg": (88,28,135),   "title": (251,191,36),  "text": (254,243,199), "accent": (236,72,153)},
+    "s5":  {"nomi": "🎭 Teatr & San'at", "bg": (20,0,30),     "title": (255,200,50),  "text": (255,240,220), "accent": (255,100,150)},
+    "s6":  {"nomi": "📸 Foto & Media",   "bg": (10,10,10),    "title": (255,255,255), "text": (200,200,200), "accent": (255,50,50)},
+    "s7":  {"nomi": "🎓 Ta'lim",         "bg": (254,252,232), "title": (146,64,14),   "text": (66,32,6),     "accent": (217,119,6)},
+    "s8":  {"nomi": "🔬 Ilmiy",          "bg": (240,249,255), "title": (12,74,110),   "text": (8,47,73),     "accent": (2,132,199)},
+    "s9":  {"nomi": "📚 Universitet",    "bg": (20,30,50),    "title": (180,160,100), "text": (220,215,195), "accent": (150,130,70)},
+    "s10": {"nomi": "💻 Texno Dark",     "bg": (0,0,0),       "title": (0,255,136),   "text": (200,255,220), "accent": (0,200,100)},
+    "s11": {"nomi": "🤖 AI & Data",      "bg": (15,15,35),    "title": (139,92,246),  "text": (221,214,254), "accent": (124,58,237)},
+    "s12": {"nomi": "⚡ Elektronika",    "bg": (10,10,20),    "title": (0,255,255),   "text": (200,240,255), "accent": (0,200,255)},
+    "s13": {"nomi": "🌿 Eko",            "bg": (20,83,45),    "title": (187,247,208), "text": (240,253,244), "accent": (74,222,128)},
+    "s14": {"nomi": "🌊 Okean",          "bg": (12,74,110),   "title": (186,230,253), "text": (224,242,254), "accent": (14,165,233)},
+    "s15": {"nomi": "🌅 Quyoshli",       "bg": (120,53,15),   "title": (254,243,199), "text": (255,251,235), "accent": (245,158,11)},
+    "s16": {"nomi": "🏥 Tibbiyot",       "bg": (255,255,255), "title": (13,148,136),  "text": (17,24,39),    "accent": (20,184,166)},
+    "s17": {"nomi": "❤️ Salomatlik",     "bg": (255,241,242), "title": (190,18,60),   "text": (68,10,30),    "accent": (244,63,94)},
+    "s18": {"nomi": "🏆 Sport",          "bg": (20,20,20),    "title": (251,146,60),  "text": (255,237,213), "accent": (249,115,22)},
+    "s19": {"nomi": "🔥 Energiya",       "bg": (69,10,10),    "title": (254,202,202), "text": (254,226,226), "accent": (239,68,68)},
+    "s20": {"nomi": "💎 VIP Premium",    "bg": (10,10,15),    "title": (255,215,0),   "text": (230,230,210), "accent": (218,165,32)},
 }
 
 # === 5 XIL SHRIFT ===
@@ -69,6 +72,8 @@ SHRIFTLAR = {
 }
 
 # === DATABASE ===
+DB_PATH = os.environ.get("DATABASE_URL", "bot.db").replace("postgres://", "postgresql://")
+
 def init_db():
     conn = sqlite3.connect("bot.db")
     c = conn.cursor()
@@ -143,12 +148,12 @@ O'zbek tilida yoz. Birinchi slayd title slide bo'lsin. Professional va batafsil 
         max_tokens=4000
     )
     text = r.choices[0].message.content
-    m = re.search(r'\{.*\}', text, re.DOTALL)
+    m = re.search(r'\\{.*\\}', text, re.DOTALL)
     if m:
         return json.loads(m.group())["slides"]
     return None
 
-# === SLAYD YARATISH ===
+# === SLAYD YARATISH (YANGILANGAN) ===
 def make_pptx(mavzu, slides, shablon_key, shrift_key, bet):
     sh = SHABLONLAR[shablon_key]
     font = SHRIFTLAR.get(shrift_key, "Calibri")
@@ -161,52 +166,66 @@ def make_pptx(mavzu, slides, shablon_key, shrift_key, bet):
     for i, info in enumerate(slides):
         sl = prs.slides.add_slide(prs.slide_layouts[6])
 
+        # Orqa fon
         bg = sl.background.fill
         bg.solid()
         bg.fore_color.rgb = rgb(sh["bg"])
 
-        bar = sl.shapes.add_shape(1, Inches(0), Inches(0), Inches(0.12), Inches(7.5))
+        # Chap yon panel (accent)
+        bar = sl.shapes.add_shape(1, Inches(0), Inches(0), Inches(0.15), Inches(7.5))
         bar.fill.solid()
         bar.fill.fore_color.rgb = rgb(sh["accent"])
         bar.line.fill.background()
 
-        bbar = sl.shapes.add_shape(1, Inches(0), Inches(7.2), Inches(13.33), Inches(0.08))
+        # Pastki chiziq
+        bbar = sl.shapes.add_shape(1, Inches(0), Inches(7.25), Inches(13.33), Inches(0.08))
         bbar.fill.solid()
         bbar.fill.fore_color.rgb = rgb(sh["accent"])
         bbar.line.fill.background()
 
+        # Yuqori sarlavha chizig'i
+        if i > 0:
+            line = sl.shapes.add_shape(1, Inches(0.5), Inches(1.3), Inches(12), Inches(0.04))
+            line.fill.solid()
+            line.fill.fore_color.rgb = rgb(sh["accent"])
+            line.line.fill.background()
+
         if i == 0:
-            tf = sl.shapes.add_textbox(Inches(1.2), Inches(2), Inches(11), Inches(1.8))
+            # TITLE SLIDE
+            tf = sl.shapes.add_textbox(Inches(1), Inches(2.2), Inches(11.33), Inches(1.5))
             p = tf.text_frame.add_paragraph()
             p.text = info.get("title", mavzu)
-            p.font.size = Pt(48)
+            p.font.size = Pt(52)
             p.font.bold = True
             p.font.name = font
             p.font.color.rgb = rgb(sh["title"])
             p.alignment = PP_ALIGN.CENTER
 
-            tf2 = sl.shapes.add_textbox(Inches(1.2), Inches(4), Inches(11), Inches(1))
+            tf2 = sl.shapes.add_textbox(Inches(1), Inches(4), Inches(11.33), Inches(1))
             p2 = tf2.text_frame.add_paragraph()
             p2.text = info.get("subtitle", "")
-            p2.font.size = Pt(24)
+            p2.font.size = Pt(26)
             p2.font.name = font
             p2.font.color.rgb = rgb(sh["text"])
             p2.alignment = PP_ALIGN.CENTER
+
+            # Dekorativ nuqta
+            dot = sl.shapes.add_shape(9, Inches(6.2), Inches(5.2), Inches(0.3), Inches(0.3))
+            dot.fill.solid()
+            dot.fill.fore_color.rgb = rgb(sh["accent"])
+            dot.line.fill.background()
+
         else:
-            tf = sl.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12.5), Inches(1))
+            # CONTENT SLIDE
+            tf = sl.shapes.add_textbox(Inches(0.6), Inches(0.3), Inches(12), Inches(1))
             p = tf.text_frame.add_paragraph()
             p.text = info.get("title", "")
-            p.font.size = Pt(34)
+            p.font.size = Pt(36)
             p.font.bold = True
             p.font.name = font
             p.font.color.rgb = rgb(sh["title"])
 
-            line = sl.shapes.add_shape(1, Inches(0.5), Inches(1.35), Inches(12), Inches(0.05))
-            line.fill.solid()
-            line.fill.fore_color.rgb = rgb(sh["accent"])
-            line.line.fill.background()
-
-            tf2 = sl.shapes.add_textbox(Inches(0.7), Inches(1.5), Inches(12), Inches(5.5))
+            tf2 = sl.shapes.add_textbox(Inches(0.8), Inches(1.5), Inches(11.8), Inches(5.3))
             tf2.text_frame.word_wrap = True
             first = True
             for bullet in info.get("bullets", [])[:bet]:
@@ -216,15 +235,16 @@ def make_pptx(mavzu, slides, shablon_key, shrift_key, bet):
                 else:
                     p2 = tf2.text_frame.add_paragraph()
                 p2.text = f"▸  {bullet}"
-                p2.font.size = Pt(19)
+                p2.font.size = Pt(20)
                 p2.font.name = font
                 p2.font.color.rgb = rgb(sh["text"])
-                p2.space_after = Pt(10)
+                p2.space_after = Pt(14)
 
-        wm = sl.shapes.add_textbox(Inches(9), Inches(7.05), Inches(4), Inches(0.4))
+        # Watermark
+        wm = sl.shapes.add_textbox(Inches(8.5), Inches(7.05), Inches(4.5), Inches(0.4))
         wp = wm.text_frame.add_paragraph()
         wp.text = "💧 @suvtekin_slayd_bot"
-        wp.font.size = Pt(9)
+        wp.font.size = Pt(10)
         wp.font.name = font
         wp.font.color.rgb = rgb(sh["accent"])
         wp.alignment = PP_ALIGN.RIGHT
@@ -278,16 +298,17 @@ async def cmd_start(message: Message, state: FSMContext):
     free = db[2] if db else 2
 
     await message.answer(
-        f"💧 <b>Suv Tekin Slayd Bot</b>\n\n"
-        f"Salom, {user.first_name}! 👋\n\n"
-        f"🎁 Bepul slayd: <b>{free} ta</b>\n\n"
-        f"📦 <b>Paketlar:</b>\n"
-        f"• 2,000 → 1 ta slayd\n"
-        f"• 3,000 → 2 ta slayd\n"
-        f"• 5,000 → 4 ta slayd\n"
-        f"• 8,000 → 8 ta slayd\n"
-        f"• 10,000 → 15 ta slayd\n\n"
-        f"Har buyurtmada <b>3 xil dizayn</b> chiqadi! 🎨\n\n"
+        f"💧 <b>Suv Tekin Slayd Bot</b>\\n\\n"
+        f"Salom, {user.first_name}! 👋\\n\\n"
+        f"🎁 Bepul slayd: <b>{free} ta</b>\\n\\n"
+        f"📦 <b>Paketlar:</b>\\n"
+        f"• 2,000 → 1 ta slayd\\n"
+        f"• 3,000 → 2 ta slayd\\n"
+        f"• 5,000 → 4 ta slayd\\n"
+        f"• 8,000 → 8 ta slayd\\n"
+        f"• 10,000 → 15 ta slayd\\n\\n"
+        f"🎨 <b>20 ta professional shablon!</b>\\n"
+        f"Har buyurtmada <b>3 xil dizayn</b>!\\n\\n"
         f"👇 Tanlang:",
         parse_mode="HTML",
         reply_markup=main_kb(free)
@@ -302,7 +323,7 @@ async def cb_bepul(call: CallbackQuery, state: FSMContext):
     await state.update_data(paket="bepul", soni=1)
     rows = [[InlineKeyboardButton(text=str(i), callback_data=f"bet_{i}") for i in range(5, 11)]]
     await call.message.edit_text(
-        "🆓 <b>Bepul paket</b>\n\n📄 Nechta bet? (5-10)",
+        "🆓 <b>Bepul paket</b>\\n\\n📄 Nechta bet? (5-10)",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
@@ -320,8 +341,8 @@ async def cb_paket(call: CallbackQuery, state: FSMContext):
             row = []
     if row: rows.append(row)
     await call.message.edit_text(
-        f"{p['nomi']} — <b>{p['narx']:,} so'm</b>\n"
-        f"📊 Slayd: <b>{p['soni']} ta</b>\n\n"
+        f"{p['nomi']} — <b>{p['narx']:,} so'm</b>\\n"
+        f"📊 Slayd: <b>{p['soni']} ta</b>\\n\\n"
         f"📄 <b>Nechta bet?</b> (5-30)",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
@@ -339,7 +360,7 @@ async def cb_bet(call: CallbackQuery, state: FSMContext):
          InlineKeyboardButton(text="Georgia", callback_data="font_f5")],
     ])
     await call.message.edit_text(
-        f"✅ Bet: <b>{bet} ta</b>\n\n🔤 <b>Shrift tanlang:</b>",
+        f"✅ Bet: <b>{bet} ta</b>\\n\\n🔤 <b>Shrift tanlang:</b>",
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -353,16 +374,16 @@ async def cb_font(call: CallbackQuery, state: FSMContext):
     if data.get("paket") == "bepul":
         await state.set_state(Order.mavzu)
         await call.message.edit_text(
-            "📝 <b>Mavzuni yozing:</b>\n<i>(Masalan: O'zbekiston tarixi)</i>",
+            "📝 <b>Mavzuni yozing:</b>\\n<i>(Masalan: O'zbekiston tarixi)</i>",
             parse_mode="HTML"
         )
     else:
         p = PAKETLAR[data["paket"]]
         await call.message.edit_text(
-            f"💳 <b>To'lov</b>\n\n"
-            f"📦 {p['nomi']}: <b>{p['narx']:,} so'm</b>\n\n"
-            f"📱 Payme/Click: <b>+998 XX XXX XX XX</b>\n"
-            f"<i>(Izohga Telegram ID: {call.from_user.id})</i>\n\n"
+            f"💳 <b>To'lov</b>\\n\\n"
+            f"📦 {p['nomi']}: <b>{p['narx']:,} so'm</b>\\n\\n"
+            f"📱 Payme/Click: <b>+998 XX XXX XX XX</b>\\n"
+            f"<i>(Izohga Telegram ID: {call.from_user.id})</i>\\n\\n"
             f"To'lovdan so'ng admin tasdiqlaydi!",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -377,16 +398,16 @@ async def cb_tolov(call: CallbackQuery, state: FSMContext):
     if ADMIN_ID:
         await bot.send_message(
             ADMIN_ID,
-            f"🆕 <b>Yangi buyurtma!</b>\n\n"
-            f"👤 ID: <code>{call.from_user.id}</code>\n"
-            f"👤 Ism: {call.from_user.first_name}\n"
-            f"📦 Paket: {p.get('nomi')} — {p.get('narx',0):,} so'm\n\n"
+            f"🆕 <b>Yangi buyurtma!</b>\\n\\n"
+            f"👤 ID: <code>{call.from_user.id}</code>\\n"
+            f"👤 Ism: {call.from_user.first_name}\\n"
+            f"📦 Paket: {p.get('nomi')} — {p.get('narx',0):,} so'm\\n\\n"
             f"✅ Tasdiqlash: <code>/tolov {call.from_user.id} {data.get('paket')}</code>",
             parse_mode="HTML"
         )
     await state.set_state(Order.mavzu)
     await call.message.edit_text(
-        "✅ <b>So'rov yuborildi!</b>\n\nAdmin tasdiqlashini kuting.\n\n📝 <b>Mavzuni yozing:</b>",
+        "✅ <b>So'rov yuborildi!</b>\\n\\nAdmin tasdiqlashini kuting.\\n\\n📝 <b>Mavzuni yozing:</b>",
         parse_mode="HTML"
     )
 
@@ -394,8 +415,8 @@ async def cb_tolov(call: CallbackQuery, state: FSMContext):
 async def cb_referral(call: CallbackQuery):
     link = f"https://t.me/suvtekin_slayd_bot?start={call.from_user.id}"
     await call.message.edit_text(
-        f"👥 <b>Do'st taklif</b>\n\n"
-        f"Sizning link:\n<code>{link}</code>\n\n"
+        f"👥 <b>Do'st taklif</b>\\n\\n"
+        f"Sizning link:\\n<code>{link}</code>\\n\\n"
         f"🎁 Do'st kirsa — ikkalangizga +1 bepul slayd!",
         parse_mode="HTML"
     )
@@ -406,9 +427,9 @@ async def cb_kabinet(call: CallbackQuery):
     free = db[2] if db else 0
     orders = db[3] if db else 0
     await call.message.edit_text(
-        f"👤 <b>Kabinet</b>\n\n"
-        f"🆔 ID: <code>{call.from_user.id}</code>\n"
-        f"💧 Bepul: <b>{free} ta</b>\n"
+        f"👤 <b>Kabinet</b>\\n\\n"
+        f"🆔 ID: <code>{call.from_user.id}</code>\\n"
+        f"💧 Bepul: <b>{free} ta</b>\\n"
         f"📦 Buyurtmalar: <b>{orders} ta</b>",
         parse_mode="HTML"
     )
@@ -425,8 +446,8 @@ async def get_mavzu(message: Message, state: FSMContext):
             row = []
     if row: rows.append(row)
     await message.answer(
-        f"✅ Mavzu: <b>{message.text}</b>\n\n"
-        f"🎨 <b>20 ta shablondan birini tanlang:</b>\n"
+        f"✅ Mavzu: <b>{message.text}</b>\\n\\n"
+        f"🎨 <b>20 ta shablondan birini tanlang:</b>\\n"
         f"<i>(Biz 3 xil dizayn yuboramiz!)</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
@@ -442,9 +463,9 @@ async def cb_shablon(call: CallbackQuery, state: FSMContext):
     shrift = data.get("shrift", "f1")
 
     await call.message.edit_text(
-        f"⏳ <b>Slaydlar yaratilmoqda...</b>\n\n"
-        f"📝 Mavzu: {mavzu}\n"
-        f"📊 Slayd: {soni} ta | 📄 Bet: {bet} ta\n"
+        f"⏳ <b>Slaydlar yaratilmoqda...</b>\\n\\n"
+        f"📝 Mavzu: {mavzu}\\n"
+        f"📊 Slayd: {soni} ta | 📄 Bet: {bet} ta\\n"
         f"🤖 AI kontent tayyorlamoqda...",
         parse_mode="HTML"
     )
@@ -465,8 +486,8 @@ async def cb_shablon(call: CallbackQuery, state: FSMContext):
             sh_name = SHABLONLAR[key]["nomi"]
             await bot.send_document(
                 call.from_user.id,
-                document=BufferedInputFile(pptx.read(), filename=f"{mavzu[:15]}_{sh_name}.pptx"),
-                caption=f"✅ <b>{mavzu}</b>\n🎨 {sh_name}\n📄 {len(slides)} slayd | {bet} bet\n\n💧 @suvtekin_slayd_bot",
+                document=(f"{mavzu[:15]}_{sh_name}.pptx", pptx),
+                caption=f"✅ <b>{mavzu}</b>\\n🎨 {sh_name}\\n📄 {len(slides)} slayd | {bet} bet\\n\\n💧 @suvtekin_slayd_bot",
                 parse_mode="HTML"
             )
 
@@ -479,7 +500,7 @@ async def cb_shablon(call: CallbackQuery, state: FSMContext):
         free = db[2] if db else 0
         await bot.send_message(
             call.from_user.id,
-            "🎉 <b>Tayyor!</b> Slaydlaringiz yuborildi!\n\n👇 Yana buyurtma:",
+            "🎉 <b>Tayyor!</b> Slaydlaringiz yuborildi!\\n\\n👇 Yana buyurtma:",
             parse_mode="HTML",
             reply_markup=main_kb(free)
         )
@@ -501,17 +522,47 @@ async def cmd_tolov(message: Message):
     update_free(uid, soni)
     await bot.send_message(
         uid,
-        f"✅ <b>To'lovingiz tasdiqlandi!</b>\n\n"
-        f"🎁 <b>{soni} ta slayd</b> qo'shildi!\n\n"
+        f"✅ <b>To'lovingiz tasdiqlandi!</b>\\n\\n"
+        f"🎁 <b>{soni} ta slayd</b> qo'shildi!\\n\\n"
         f"📝 Mavzuni yozing:",
         parse_mode="HTML"
     )
     await message.answer(f"✅ {uid} ga {soni} ta slayd berildi!")
 
+# === RAILWAY HEALTH CHECK ===
+async def health_check_server():
+    """Railway uchun health check server"""
+    from aiohttp import web
+    
+    async def health(request):
+        return web.Response(text="Bot is running! ✅")
+    
+    app = web.Application()
+    app.router.add_get('/', health)
+    app.router.add_get('/health', health)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+    print(f"Health check server: http://0.0.0.0:{PORT}")
+
 async def main():
     init_db()
     print("✅ SuvTekin Slayd Bot ishga tushdi!")
+    print(f"🎨 20 ta professional shablon yuklandi!")
+    
+    # Railway uchun health check
+    await health_check_server()
+    
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+'''
+
+with open('/mnt/agents/output/suvtekin_bot_railway.py', 'w', encoding='utf-8') as f:
+    f.write(yangi_kod)
+
+print("✅ Yangilangan bot kodi tayyor!")
+print("📁 Fayl: suvtekin_bot_railway.py")
