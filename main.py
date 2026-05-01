@@ -12,8 +12,9 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (CallbackQuery, InlineKeyboardButton,
-                            InlineKeyboardMarkup, Message)
+from aiogram.types import (BufferedInputFile, CallbackQuery,
+                            InlineKeyboardButton, InlineKeyboardMarkup,
+                            Message)
 from groq import Groq
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -464,7 +465,7 @@ async def cb_shablon(call: CallbackQuery, state: FSMContext):
             sh_name = SHABLONLAR[key]["nomi"]
             await bot.send_document(
                 call.from_user.id,
-                document=(f"{mavzu[:15]}_{sh_name}.pptx", pptx),
+                document=BufferedInputFile(pptx.read(), filename=f"{mavzu[:15]}_{sh_name}.pptx"),
                 caption=f"✅ <b>{mavzu}</b>\n🎨 {sh_name}\n📄 {len(slides)} slayd | {bet} bet\n\n💧 @suvtekin_slayd_bot",
                 parse_mode="HTML"
             )
