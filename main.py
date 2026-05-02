@@ -1,517 +1,647 @@
-import asyncio
-import io
-import json
-import logging
-import os
-import random
-import re
-import sqlite3
+"/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-from aiogram import Bot, Dispatcher, F
-from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (BufferedInputFile, CallbackQuery,
-                            InlineKeyboardButton, InlineKeyboardMarkup,
-                            Message)
-from groq import Groq
-from pptx import Presentation
-from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
-from pptx.util import Inches, Pt
+import React, { useState, useEffect, useMemo } from 'react';
+import Markdown from 'react-markdown';
+import { 
+  Key, 
+  Plus, 
+  Trash2, 
+  Copy, 
+  CheckCircle2, 
+  ShieldAlert, 
+  Activity, 
+  ExternalLink,
+  ShieldCheck,
+  RefreshCw,
+  Search,
+  Settings,
+  MoreVertical,
+  Zap,
+  Info,
+  Layers,
+  LayoutDashboard,
+  Box,
+  CreditCard,
+  ChevronRight,
+  TrendingUp,
+  AlertCircle,
+  MessageSquare,
+  Wand2,
+  Code2,
+  Terminal,
+  Cpu,
+  Globe
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI } from '@google/genai';
+import { APIKey, SecurityLevel } from './types';
 
-# === SOZLAMALAR ===
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
+// Constants
+const GEMINI_MODEL = 'gemini-3-flash-preview';
 
-# === NARXLAR ===
-PAKETLAR = {
-    "p2000":  {"nomi": "🥉 Standart", "narx": 2000,  "soni": 1},
-    "p3000":  {"nomi": "🥈 Silver",   "narx": 3000,  "soni": 2},
-    "p5000":  {"nomi": "🥇 Gold",     "narx": 5000,  "soni": 4},
-    "p8000":  {"nomi": "💎 Premium",  "narx": 8000,  "soni": 8},
-    "p10000": {"nomi": "👑 VIP",      "narx": 10000, "soni": 15},
+export default function App() {
+  const [keys, setKeys] = useState<APIKey[]>([]);
+  const [activeTab, setActiveTab] = useState<'keys' | 'architect'>('keys');
+
+  // Bot Architect State
+  const [botGoal, setBotGoal] = useState('');
+  const [botResponse, setBotResponse] = useState<string | null>(null);
+  const [isGeneratingBot, setIsGeneratingBot] = useState(false);
+
+  // Initial data population
+  useEffect(() => {
+    if (keys.length === 0) {
+      setKeys([
+        {
+          id: '1',
+          name: 'Ishlab chiqarish (Production) Mobile',
+          key: 'ks_live_a9b8c7d6e5f4g3h2i1j0k9l8m7n6o5p4',
+          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
+          lastUsed: new Date().toISOString(),
+          status: 'active',
+          usageLimit: 5000,
+          currentUsage: 1240
+        }
+      ]);
+    }
+  }, []);
+
+  const [isAddingMode, setIsAddingMode] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+
+  // Initialize Gemini
+  const ai = useMemo(() => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") return null;
+      return new GoogleGenAI({ apiKey });
+    } catch (e) {
+      console.error('Gemini init failed', e);
+      return null;
+    }
+  }, []);
+
+  const generateBotGuide = async () => {
+    if (!ai) {
+      alert("Iltimos, Secrets panelida GEMINI_API_KEY ni sozlang.");
+      return;
+    }
+    if (!botGoal) return;
+
+    setIsGeneratingBot(true);
+    try {
+      const prompt = `Siz professional Telegram bot dasturchisisiz. Foydalanuvchi quyidagi botni yaratmoqchi: "${botGoal}". 
+      Unga quyidagilarni o'zbek tilida batafsil yozib bering:
+      1. Botning 0-dan boshlab yaratish rejasi (Taqdimot, Krassvord, Test bo'limlari bilan).
+      2. Har bir buyruq uchun yoqimli emojilar va reply xabarlar namunasi.
+      3. Node.js (Telegraf.js) kodi namunasi (Start menyu va bo'limlar).
+      4. PPTX yaratish (pptxgenjs) va Click/Payme to'lovlarini screenshot orqali tekshirish bo'yicha maslahatlar.
+      Markdown formatida yozing.`;
+
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt
+      });
+      setBotResponse(response.text || "Javob olib bo'lmadi.");
+    } catch (error) {
+      console.error('Bot generation failed', error);
+      setBotResponse("Xatolik yuz berdi. Iltimos qaytadan urunib ko'ring.");
+    } finally {
+      setIsGeneratingBot(false);
+    }
+  };
+
+  // Filter keys
+  const filteredKeys = useMemo(() => {
+    return keys.filter(k => 
+      k.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      k.key.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [keys, searchQuery]);
+
+  // Generate a random key
+  const generateKey = (name: string) => {
+    const randomPart = Array.from({ length: 32 }, () => 
+      Math.random().toString(36)[2]
+    ).join('');
+    
+    const newKey: APIKey = {
+      id: Math.random().toString(36).substring(7),
+      name: name || 'Untitled Key',
+      key: `ks_${randomPart}`,
+      createdAt: new Date().toISOString(),
+      lastUsed: null,
+      status: 'active',
+      usageLimit: 1000,
+      currentUsage: 0
+    };
+    
+    setKeys(prev => [newKey, ...prev]);
+    setIsAddingMode(false);
+    setNewKeyName('');
+  };
+
+  const deleteKey = (id: string) => {
+    setKeys(prev => prev.filter(k => k.id !== id));
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const analyzeSecurity = async () => {
+    if (!ai) {
+      setAiInsight("Gemini API kaliti topilmadi (Secrets paneliga qarang).");
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    try {
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: "Siz kiberxavfsizlik ekspertisiz. API kalitlarini xavfsiz saqlash bo'yicha 3 ta qisqa va foydali maslahat bering (o'zbek tilida). Maksimum 80 so'z."
+      });
+      setAiInsight(response.text || "Auditi natijasi chiqmadi.");
+    } catch (error) {
+      console.error('Security analysis failed', error);
+      setAiInsight("AI bilan bog'lanishda xatolik.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 bg-slate-900 flex flex-col border-r border-slate-800 shrink-0">
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white shrink-0">
+            <Zap className="w-5 h-5 fill-white" />
+          </div>
+          <span className="font-bold text-slate-100 tracking-tight text-lg">KEYSCALE API</span>
+        </div>
+
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          <NavItem icon={<LayoutDashboard size={18} />} label="Boshqaruv paneli" />
+          <div onClick={() => setActiveTab('keys')}>
+            <NavItem icon={<Key size={18} />} label="API Kalitlar" active={activeTab === 'keys'} />
+          </div>
+          <div onClick={() => setActiveTab('architect')}>
+            <NavItem icon={<Wand2 size={18} />} label="Bot Arxitektori" active={activeTab === 'architect'} />
+          </div>
+          <NavItem icon={<Activity size={18} />} label="Foydalanish tarixi" />
+          <NavItem icon={<CreditCard size={18} />} label="To'lovlar" />
+          <NavItem icon={<Box size={18} />} label="Integratsiyalar" />
+        </nav>
+
+        <div className="p-4 border-t border-slate-800">
+          <div className="flex items-center gap-3 p-2 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer group">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold leading-none shrink-0 group-hover:bg-indigo-200 transition-colors">
+              SY
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs font-medium text-white truncate">Sardor Developer</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Professional Plan</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Header */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 z-10">
+          <h1 className="text-lg font-semibold text-slate-800 uppercase tracking-tight">
+            {activeTab === 'keys' ? 'API Kalitlarni Boshqarish' : 'Bot Arxitektori (Beta)'}
+          </h1>
+          
+          <div className="flex items-center gap-4">
+            {activeTab === 'keys' && (
+              <div className="relative group hidden md:block">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Kalitlarni qidirish..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-4 py-1.5 bg-slate-100 border border-transparent rounded text-sm focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all w-64 outline-none"
+                />
+              </div>
+            )}
+            {activeTab === 'keys' ? (
+              <button 
+                onClick={() => setIsAddingMode(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700 transition-all shadow-sm active:scale-95"
+              >
+                + Yangi kalit yaratish
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                <span className="px-2 py-1 bg-slate-100 rounded">AI POWERED</span>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+          {activeTab === 'keys' ? (
+            <>
+              {/* Dashboard Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard 
+                  label="Faol kalitlar" 
+                  value={keys.length} 
+                  icon={<Key className="text-indigo-600" size={16} />} 
+                  trend="Bu oyda +2 ta"
+                />
+                <StatCard 
+                  label="Umumiy foydalanish (24s)" 
+                  value={keys.reduce((acc, k) => acc + k.currentUsage, 0).toLocaleString()} 
+                  icon={<TrendingUp className="text-indigo-600" size={16} />} 
+                  subValue="Kvota: 85%"
+                />
+                <StatCard 
+                  label="Xatolik darajasi" 
+                  value="0.04%" 
+                  icon={<AlertCircle className="text-emerald-600" size={16} />} 
+                  positive
+                />
+              </div>
+
+              {/* AI Security Insight Section (Density Update) */}
+              <section className="bg-slate-900 rounded-lg p-6 text-white relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
+                  <ShieldCheck size={120} className="text-indigo-400 rotate-12" />
+                </div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded border border-indigo-400/20">Gemini Xavfsizlik Auditi</span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Avtomatlashtirilgan Xavfsizlik Tahlili</h3>
+                  {aiInsight ? (
+                    <p className="text-slate-300 leading-relaxed text-sm mb-4 max-w-3xl">
+                      {aiInsight}
+                    </p>
+                  ) : (
+                    <p className="text-slate-400 text-sm mb-4 italic">
+                      Gemini AI yordamida real vaqt rejimida API infratuzilmangizni xavfsizlik tahlilidan o'tkazing.
+                    </p>
+                  )}
+                  
+                  <button 
+                    onClick={analyzeSecurity}
+                    disabled={isAnalyzing}
+                    className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded text-xs font-bold transition-all disabled:opacity-50"
+                  >
+                    {isAnalyzing ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5 fill-white" />
+                    )}
+                    {isAnalyzing ? 'TAHLIL QILINMOQDA...' : 'AUDITNI BOSHLASH'}
+                  </button>
+                </div>
+              </section>
+
+              {/* Keys Table Container */}
+              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Faol API kalitlari</h4>
+                  <button className="text-slate-400 hover:text-slate-600 transition-colors">
+                    <Settings size={14} />
+                  </button>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tavsif (Nomi)</th>
+                        <th className="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Maxfiy kalit</th>
+                        <th className="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Yaratilgan sana</th>
+                        <th className="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Holati</th>
+                        <th className="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Amallar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <AnimatePresence mode="popLayout">
+                        {filteredKeys.length > 0 ? (
+                          filteredKeys.map((k) => (
+                            <motion.tr 
+                              layout
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              key={k.id}
+                              className="hover:bg-slate-50/80 transition-colors group"
+                            >
+                              <td className="px-6 py-4">
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold text-slate-900">{k.name}</span>
+                                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tight mt-0.5">Foydalanish: {k.currentUsage} ta</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <code className="text-[11px] font-mono bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200 block truncate max-w-[150px]">
+                                    {k.key.substring(0, 10)}â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢
+                                  </code>
+                                  <button 
+                                    onClick={() => copyToClipboard(k.key, k.id)}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                                  >
+                                    {copiedId === k.id ? <CheckCircle2 size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                                {new Date(k.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold uppercase tracking-wider">
+                                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                                  Faol
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button 
+                                  onClick={() => deleteKey(k.id)}
+                                  className="text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </motion.tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-20 text-center">
+                               <div className="flex flex-col items-center gap-4 text-slate-400">
+                                  <Key size={40} className="text-slate-200" />
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-bold text-slate-500">Hech qanday ma'lumot topilmadi</p>
+                                    <p className="text-xs">{(searchQuery ? "Filtrga mos keladigan kalitlar mavjud emas." : "Yangi API kalit yaratish orqali boshlang.")}</p>
+                                  </div>
+                               </div>
+                            </td>
+                          </tr>
+                        )}
+                      </AnimatePresence>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 flex gap-4">
+                <Info className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                <div className="flex-1">
+                  <h5 className="text-sm font-bold text-amber-900 mb-1">Dasturchilar uchun eslatma</h5>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Bu yerda ko'rsatilgan kalitlar namuna uchun. Haqiqiy ishchi muhitda tizimingizni himoya qilish uchun <strong>IP-larni oq ro'yxatga kiritish</strong> 
+                    va <strong>Ruxsatlar nazorati (RBAC)</strong>-ni amalga oshirishingizni tavsiya qilamiz. Gemini API kalitini xavfsiz boshqarish uchun Secrets panelidan foydalaning.
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl mb-4">
+                  <Cpu size={32} />
+                </div>
+                <h2 className="text-3xl font-bold text-slate-900">Bot Arxitektori</h2>
+                <p className="text-slate-500">Botingiz g'oyasini yozing, biz esa uni 0-dan yaratishga yordam beramiz.</p>
+              </div>
+
+              {/* Step by Step Guide for Beginners */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <GuideStep number="1" title="BotFather" desc="Token oling" />
+                <GuideStep number="2" title="G'oya" desc="Shartlarni yozing" />
+                <GuideStep number="3" title="Kod" desc="AI yordamida oling" />
+                <GuideStep number="4" title="Railway" desc="Serverga yuklang" />
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-8 space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Bot g'oyasi va barcha shartlarini kiriting:</label>
+                    <textarea 
+                      placeholder="Masalan: Taqdimot yaratadigan bot. Narxlar: 1 ta slayd 2000 so'm. To'lov screenshot orqali..." 
+                      rows={6}
+                      value={botGoal}
+                      onChange={(e) => setBotGoal(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-slate-800"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FeatureBox 
+                      icon={<Terminal size={20} className="text-indigo-600" />} 
+                      title="Tayyor Kod" 
+                      desc="Node.js yoki Python uchun boshlang'ich kod snippetlari." 
+                    />
+                    <FeatureBox 
+                      icon={<Globe size={20} className="text-indigo-600" />} 
+                      title="Railway Guide" 
+                      desc="Botingizni serverga joylash bo'yicha bosqichma-bosqich qo'llanma." 
+                    />
+                  </div>
+
+                  <button 
+                    onClick={generateBotGuide}
+                    disabled={isGeneratingBot || !botGoal}
+                    className="w-full bg-slate-900 text-white flex items-center justify-center gap-3 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+                  >
+                    {isGeneratingBot ? (
+                      <>
+                        <RefreshCw size={20} className="animate-spin" />
+                        ARXITEKTURA LOYIHALANMOQDA...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 size={20} />
+                        BOTNI LOYIHALASHNI BOSHLASH
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {botResponse && (
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 prose prose-slate max-w-none">
+                  <div className="flex items-center gap-2 mb-6 text-indigo-600 font-bold border-b border-slate-100 pb-4">
+                    <Code2 size={24} />
+                    SIZNING BOTINGIZ UCHUN YO'RIQNOMA
+                  </div>
+                  <div className="markdown-body">
+                    <Markdown>{botResponse}</Markdown>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* High Density Modal Overlay */}
+      <AnimatePresence>
+        {isAddingMode && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 overflow-hidden">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setIsAddingMode(false)}
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-[480px] rounded-xl shadow-2xl border border-slate-200 overflow-hidden relative z-50"
+            >
+              <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="text-lg font-bold text-slate-900">Yangi API kalit yaratish</h3>
+                <p className="text-sm text-slate-500 mt-1">Ilovangiz yoki xizmatingiz uchun kirish ruxsatini sozlang.</p>
+              </div>
+              <div className="p-6 space-y-5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Kalit nomi</label>
+                  <input 
+                    type="text" 
+                    placeholder="masalan: Production Mobile App" 
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    autoFocus
+                    className="w-full border border-slate-200 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Ruxsatlar (Bosqichlar)</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input type="checkbox" checked readOnly className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
+                      <span className="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">Faqat o'qish (Standart)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
+                      <span className="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">Yozish ruxsati</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded cursor-pointer" />
+                      <span className="text-sm text-slate-700 group-hover:text-slate-900 transition-colors">Ma'muriy ruxsatlar</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-lg border border-amber-100 flex gap-3">
+                  <ShieldAlert className="text-amber-600 shrink-0" />
+                  <p className="text-[11px] text-amber-800 leading-normal font-medium">
+                    Diqqat: Kalit yaratilgandan so'ng, uning to'liq maxfiy qismi faqat bir marta ko'rsatiladi. Uni xavfsiz joyda saqlashingizga ishonch hosil qiling.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
+                <button 
+                  onClick={() => setIsAddingMode(false)}
+                  className="px-4 py-2 text-sm font-bold text-slate-600 hover:text-slate-800 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button 
+                  onClick={() => generateKey(newKeyName)}
+                  className="px-6 py-2 bg-indigo-600 text-white text-sm font-black rounded shadow-md hover:bg-indigo-700 transition-all active:scale-95"
+                >
+                  KALITNI YARATISH
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
-# === 20 TA SHABLON ===
-SHABLONLAR = {
-    "s1":  {"nomi": "💼 Biznes Pro",   "bg": (15,32,67),    "title": (255,215,0),   "text": (255,255,255), "accent": (255,215,0)},
-    "s2":  {"nomi": "🌟 Zamonaviy",   "bg": (10,10,30),    "title": (0,255,200),   "text": (255,255,255), "accent": (0,255,200)},
-    "s3":  {"nomi": "✨ Minimal Oq",  "bg": (255,255,255), "title": (30,30,90),    "text": (50,50,80),    "accent": (41,128,185)},
-    "s4":  {"nomi": "🌿 Tabiat",      "bg": (20,55,35),    "title": (100,220,100), "text": (255,255,255), "accent": (46,204,113)},
-    "s5":  {"nomi": "🚀 Kosmik",      "bg": (5,5,25),      "title": (180,100,255), "text": (255,255,255), "accent": (155,89,182)},
-    "s6":  {"nomi": "🔴 Qizil Kuch",  "bg": (80,10,10),    "title": (255,80,80),   "text": (255,255,255), "accent": (255,80,80)},
-    "s7":  {"nomi": "🌊 Okean",       "bg": (5,30,70),     "title": (100,200,255), "text": (255,255,255), "accent": (52,152,219)},
-    "s8":  {"nomi": "🎨 San'at",      "bg": (40,10,60),    "title": (255,150,255), "text": (255,255,255), "accent": (200,100,255)},
-    "s9":  {"nomi": "🏆 Sport",       "bg": (20,20,20),    "title": (255,150,0),   "text": (255,255,255), "accent": (255,150,0)},
-    "s10": {"nomi": "🏥 Tibbiyot",    "bg": (240,248,255), "title": (0,100,150),   "text": (30,30,80),    "accent": (0,180,150)},
-    "s11": {"nomi": "📚 Ilmiy",       "bg": (245,245,250), "title": (20,60,120),   "text": (40,40,80),    "accent": (41,128,185)},
-    "s12": {"nomi": "🌸 Bahor",       "bg": (255,240,245), "title": (180,50,100),  "text": (80,20,50),    "accent": (220,80,130)},
-    "s13": {"nomi": "🌅 Quyosh",      "bg": (255,250,220), "title": (180,100,0),   "text": (80,50,0),     "accent": (230,150,0)},
-    "s14": {"nomi": "🗿 Tarixiy",     "bg": (60,40,20),    "title": (220,180,100), "text": (255,235,180), "accent": (200,160,80)},
-    "s15": {"nomi": "💻 Texno",       "bg": (5,15,5),      "title": (0,255,50),    "text": (200,255,200), "accent": (0,200,50)},
-    "s16": {"nomi": "🎭 Teatr",       "bg": (30,0,30),     "title": (255,200,0),   "text": (255,240,200), "accent": (200,150,0)},
-    "s17": {"nomi": "❄️ Muzli",       "bg": (220,240,255), "title": (0,80,160),    "text": (20,60,120),   "accent": (100,180,255)},
-    "s18": {"nomi": "🔥 Olov",        "bg": (30,5,0),      "title": (255,120,0),   "text": (255,220,180), "accent": (255,80,0)},
-    "s19": {"nomi": "🌙 Tungi",       "bg": (10,10,40),    "title": (200,200,255), "text": (180,180,240), "accent": (150,150,255)},
-    "s20": {"nomi": "🎓 Ta'lim",      "bg": (250,250,255), "title": (0,50,150),    "text": (30,30,100),   "accent": (0,100,200)},
+// Sub-components for better organization & themes
+function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+  return (
+    <div 
+      className={`flex items-center px-4 py-2.5 text-sm font-medium transition-all group rounded-md cursor-pointer ${
+        active 
+          ? 'bg-slate-800 text-white shadow-inner' 
+          : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+      }`}
+    >
+      <span className={`mr-3 transition-colors ${active ? 'text-indigo-400' : 'group-hover:text-white'}`}>
+        {icon}
+      </span>
+      {label}
+      {active && <ChevronRight size={14} className="ml-auto text-slate-500" />}
+    </div>
+  );
 }
 
-# === 5 XIL SHRIFT ===
-SHRIFTLAR = {
-    "f1": "Calibri",
-    "f2": "Arial",
-    "f3": "Times New Roman",
-    "f4": "Verdana",
-    "f5": "Georgia",
+function StatCard({ label, value, icon, trend, subValue, positive = false }: { 
+  label: string, 
+  value: string | number, 
+  icon: React.ReactNode, 
+  trend?: string,
+  subValue?: string,
+  positive?: boolean
+}) {
+  return (
+    <div className="bg-white p-5 border border-slate-200 rounded-lg shadow-sm hover:border-indigo-300 transition-all flex flex-col group">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+        <div className="p-1.5 bg-slate-50 rounded border border-slate-100 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-colors">
+          {icon}
+        </div>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <p className={`text-2xl font-mono tracking-tight font-bold ${positive ? 'text-emerald-600' : 'text-slate-900'}`}>
+          {value}
+        </p>
+        {trend && (
+          <span className="text-[10px] font-bold text-slate-400 tracking-tight">
+            ({trend})
+          </span>
+        )}
+      </div>
+      {subValue && (
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{subValue}</p>
+      )}
+    </div>
+  );
 }
 
-# === DATABASE ===
-def init_db():
-    conn = sqlite3.connect("bot.db")
-    c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS users (
-        telegram_id INTEGER PRIMARY KEY,
-        username TEXT,
-        free_slides INTEGER DEFAULT 2,
-        total_orders INTEGER DEFAULT 0,
-        referral_by INTEGER DEFAULT 0
-    )""")
-    conn.commit()
-    conn.close()
+function FeatureBox({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+  return (
+    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex gap-4">
+      <div className="shrink-0">{icon}</div>
+      <div>
+        <h5 className="text-sm font-bold text-slate-900">{title}</h5>
+        <p className="text-xs text-slate-500 leading-normal">{desc}</p>
+      </div>
+    </div>
+  );
+}
 
-def get_user(tid):
-    conn = sqlite3.connect("bot.db")
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE telegram_id=?", (tid,))
-    u = c.fetchone()
-    conn.close()
-    return u
-
-def add_user(tid, username, referral_by=0):
-    conn = sqlite3.connect("bot.db")
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO users (telegram_id,username,referral_by) VALUES (?,?,?)",
-              (tid, username, referral_by))
-    conn.commit()
-    conn.close()
-
-def update_free(tid, n):
-    conn = sqlite3.connect("bot.db")
-    c = conn.cursor()
-    c.execute("UPDATE users SET free_slides=free_slides+? WHERE telegram_id=?", (n, tid))
-    conn.commit()
-    conn.close()
-
-def use_free(tid):
-    conn = sqlite3.connect("bot.db")
-    c = conn.cursor()
-    c.execute("UPDATE users SET free_slides=free_slides-1 WHERE telegram_id=?", (tid,))
-    conn.commit()
-    conn.close()
-
-def add_order(tid):
-    conn = sqlite3.connect("bot.db")
-    c = conn.cursor()
-    c.execute("UPDATE users SET total_orders=total_orders+1 WHERE telegram_id=?", (tid,))
-    conn.commit()
-    conn.close()
-
-# === GROQ AI ===
-def generate_content(mavzu, soni, bet):
-    client = Groq(api_key=GROQ_API_KEY)
-    prompt = f"""Sen professional taqdimot mutaxassisisiz.
-"{mavzu}" mavzusida {soni} ta slayd uchun kontent yarat.
-Har slaydda {bet} ta bullet point bo'lsin (har biri 1-2 gap, batafsil).
-
-FAQAT JSON qaytar:
-{{
-  "slides": [
-    {{"title": "Sarlavha", "subtitle": "Kichik izoh"}},
-    {{"title": "Sarlavha 2", "bullets": ["Nuqta 1", "Nuqta 2", "Nuqta 3"]}},
-    ...
-  ]
-}}
-
-O'zbek tilida yoz. Birinchi slayd title slide bo'lsin. Professional va batafsil bo'lsin."""
-
-    r = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=4000
-    )
-    text = r.choices[0].message.content
-    m = re.search(r'\{.*\}', text, re.DOTALL)
-    if m:
-        return json.loads(m.group())["slides"]
-    return None
-
-# === SLAYD YARATISH ===
-def make_pptx(mavzu, slides, shablon_key, shrift_key, bet):
-    sh = SHABLONLAR[shablon_key]
-    font = SHRIFTLAR.get(shrift_key, "Calibri")
-    prs = Presentation()
-    prs.slide_width = Inches(13.33)
-    prs.slide_height = Inches(7.5)
-
-    def rgb(t): return RGBColor(*t)
-
-    for i, info in enumerate(slides):
-        sl = prs.slides.add_slide(prs.slide_layouts[6])
-
-        bg = sl.background.fill
-        bg.solid()
-        bg.fore_color.rgb = rgb(sh["bg"])
-
-        bar = sl.shapes.add_shape(1, Inches(0), Inches(0), Inches(0.12), Inches(7.5))
-        bar.fill.solid()
-        bar.fill.fore_color.rgb = rgb(sh["accent"])
-        bar.line.fill.background()
-
-        bbar = sl.shapes.add_shape(1, Inches(0), Inches(7.2), Inches(13.33), Inches(0.08))
-        bbar.fill.solid()
-        bbar.fill.fore_color.rgb = rgb(sh["accent"])
-        bbar.line.fill.background()
-
-        if i == 0:
-            tf = sl.shapes.add_textbox(Inches(1.2), Inches(2), Inches(11), Inches(1.8))
-            p = tf.text_frame.add_paragraph()
-            p.text = info.get("title", mavzu)
-            p.font.size = Pt(48)
-            p.font.bold = True
-            p.font.name = font
-            p.font.color.rgb = rgb(sh["title"])
-            p.alignment = PP_ALIGN.CENTER
-
-            tf2 = sl.shapes.add_textbox(Inches(1.2), Inches(4), Inches(11), Inches(1))
-            p2 = tf2.text_frame.add_paragraph()
-            p2.text = info.get("subtitle", "")
-            p2.font.size = Pt(24)
-            p2.font.name = font
-            p2.font.color.rgb = rgb(sh["text"])
-            p2.alignment = PP_ALIGN.CENTER
-        else:
-            tf = sl.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12.5), Inches(1))
-            p = tf.text_frame.add_paragraph()
-            p.text = info.get("title", "")
-            p.font.size = Pt(34)
-            p.font.bold = True
-            p.font.name = font
-            p.font.color.rgb = rgb(sh["title"])
-
-            line = sl.shapes.add_shape(1, Inches(0.5), Inches(1.35), Inches(12), Inches(0.05))
-            line.fill.solid()
-            line.fill.fore_color.rgb = rgb(sh["accent"])
-            line.line.fill.background()
-
-            tf2 = sl.shapes.add_textbox(Inches(0.7), Inches(1.5), Inches(12), Inches(5.5))
-            tf2.text_frame.word_wrap = True
-            first = True
-            for bullet in info.get("bullets", [])[:bet]:
-                if first:
-                    p2 = tf2.text_frame.paragraphs[0]
-                    first = False
-                else:
-                    p2 = tf2.text_frame.add_paragraph()
-                p2.text = f"▸  {bullet}"
-                p2.font.size = Pt(19)
-                p2.font.name = font
-                p2.font.color.rgb = rgb(sh["text"])
-                p2.space_after = Pt(10)
-
-        wm = sl.shapes.add_textbox(Inches(9), Inches(7.05), Inches(4), Inches(0.4))
-        wp = wm.text_frame.add_paragraph()
-        wp.text = "💧 @suvtekin_slayd_bot"
-        wp.font.size = Pt(9)
-        wp.font.name = font
-        wp.font.color.rgb = rgb(sh["accent"])
-        wp.alignment = PP_ALIGN.RIGHT
-
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-    return buf
-
-# === STATE ===
-class Order(StatesGroup):
-    bet = State()
-    shrift = State()
-    mavzu = State()
-    shablon = State()
-
-# === BOT ===
-logging.basicConfig(level=logging.INFO)
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
-
-def main_kb(free):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"🆓 Bepul ({free} ta)", callback_data="bepul")],
-        [InlineKeyboardButton(text="🥉 2,000 so'm — 1 ta", callback_data="p2000"),
-         InlineKeyboardButton(text="🥈 3,000 so'm — 2 ta", callback_data="p3000")],
-        [InlineKeyboardButton(text="🥇 5,000 so'm — 4 ta", callback_data="p5000"),
-         InlineKeyboardButton(text="💎 8,000 so'm — 8 ta", callback_data="p8000")],
-        [InlineKeyboardButton(text="👑 10,000 so'm — 15 ta", callback_data="p10000")],
-        [InlineKeyboardButton(text="👥 Do'st taklif", callback_data="referral"),
-         InlineKeyboardButton(text="👤 Kabinet", callback_data="kabinet")],
-    ])
-
-@dp.message(Command("start"))
-async def cmd_start(message: Message, state: FSMContext):
-    await state.clear()
-    user = message.from_user
-    args = message.text.split()
-    referral_by = int(args[1]) if len(args) > 1 and args[1].isdigit() else 0
-
-    add_user(user.id, user.username or user.first_name, referral_by)
-
-    if referral_by and referral_by != user.id:
-        update_free(referral_by, 1)
-        update_free(user.id, 1)
-        try:
-            await bot.send_message(referral_by, "🎁 Do'stingiz kirdi! +1 bepul slayd!")
-        except: pass
-
-    db = get_user(user.id)
-    free = db[2] if db else 2
-
-    await message.answer(
-        f"💧 <b>Suv Tekin Slayd Bot</b>\n\n"
-        f"Salom, {user.first_name}! 👋\n\n"
-        f"🎁 Bepul slayd: <b>{free} ta</b>\n\n"
-        f"📦 <b>Paketlar:</b>\n"
-        f"• 2,000 → 1 ta slayd\n"
-        f"• 3,000 → 2 ta slayd\n"
-        f"• 5,000 → 4 ta slayd\n"
-        f"• 8,000 → 8 ta slayd\n"
-        f"• 10,000 → 15 ta slayd\n\n"
-        f"Har buyurtmada <b>3 xil dizayn</b> chiqadi! 🎨\n\n"
-        f"👇 Tanlang:",
-        parse_mode="HTML",
-        reply_markup=main_kb(free)
-    )
-
-@dp.callback_query(F.data == "bepul")
-async def cb_bepul(call: CallbackQuery, state: FSMContext):
-    db = get_user(call.from_user.id)
-    if not db or db[2] <= 0:
-        await call.answer("❌ Bepul slayd tugagan!", show_alert=True)
-        return
-    await state.update_data(paket="bepul", soni=1)
-    rows = [[InlineKeyboardButton(text=str(i), callback_data=f"bet_{i}") for i in range(5, 11)]]
-    await call.message.edit_text(
-        "🆓 <b>Bepul paket</b>\n\n📄 Nechta bet? (5-10)",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
-    )
-
-@dp.callback_query(F.data.in_(set(PAKETLAR.keys())))
-async def cb_paket(call: CallbackQuery, state: FSMContext):
-    p = PAKETLAR[call.data]
-    await state.update_data(paket=call.data, soni=p["soni"])
-    rows = []
-    row = []
-    for i in range(5, 31):
-        row.append(InlineKeyboardButton(text=str(i), callback_data=f"bet_{i}"))
-        if len(row) == 5:
-            rows.append(row)
-            row = []
-    if row: rows.append(row)
-    await call.message.edit_text(
-        f"{p['nomi']} — <b>{p['narx']:,} so'm</b>\n"
-        f"📊 Slayd: <b>{p['soni']} ta</b>\n\n"
-        f"📄 <b>Nechta bet?</b> (5-30)",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
-    )
-
-@dp.callback_query(F.data.startswith("bet_"))
-async def cb_bet(call: CallbackQuery, state: FSMContext):
-    bet = int(call.data.split("_")[1])
-    await state.update_data(bet=bet)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Calibri", callback_data="font_f1"),
-         InlineKeyboardButton(text="Arial", callback_data="font_f2")],
-        [InlineKeyboardButton(text="Times New Roman", callback_data="font_f3")],
-        [InlineKeyboardButton(text="Verdana", callback_data="font_f4"),
-         InlineKeyboardButton(text="Georgia", callback_data="font_f5")],
-    ])
-    await call.message.edit_text(
-        f"✅ Bet: <b>{bet} ta</b>\n\n🔤 <b>Shrift tanlang:</b>",
-        parse_mode="HTML",
-        reply_markup=kb
-    )
-
-@dp.callback_query(F.data.startswith("font_"))
-async def cb_font(call: CallbackQuery, state: FSMContext):
-    shrift = call.data.replace("font_", "")
-    await state.update_data(shrift=shrift)
-    data = await state.get_data()
-
-    if data.get("paket") == "bepul":
-        await state.set_state(Order.mavzu)
-        await call.message.edit_text(
-            "📝 <b>Mavzuni yozing:</b>\n<i>(Masalan: O'zbekiston tarixi)</i>",
-            parse_mode="HTML"
-        )
-    else:
-        p = PAKETLAR[data["paket"]]
-        await call.message.edit_text(
-            f"💳 <b>To'lov</b>\n\n"
-            f"📦 {p['nomi']}: <b>{p['narx']:,} so'm</b>\n\n"
-            f"📱 Payme/Click: <b>+998 XX XXX XX XX</b>\n"
-            f"<i>(Izohga Telegram ID: {call.from_user.id})</i>\n\n"
-            f"To'lovdan so'ng admin tasdiqlaydi!",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✅ To'lov qildim", callback_data="tolov_qildim")]
-            ])
-        )
-
-@dp.callback_query(F.data == "tolov_qildim")
-async def cb_tolov(call: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    p = PAKETLAR.get(data.get("paket"), {})
-    if ADMIN_ID:
-        await bot.send_message(
-            ADMIN_ID,
-            f"🆕 <b>Yangi buyurtma!</b>\n\n"
-            f"👤 ID: <code>{call.from_user.id}</code>\n"
-            f"👤 Ism: {call.from_user.first_name}\n"
-            f"📦 Paket: {p.get('nomi')} — {p.get('narx',0):,} so'm\n\n"
-            f"✅ Tasdiqlash: <code>/tolov {call.from_user.id} {data.get('paket')}</code>",
-            parse_mode="HTML"
-        )
-    await state.set_state(Order.mavzu)
-    await call.message.edit_text(
-        "✅ <b>So'rov yuborildi!</b>\n\nAdmin tasdiqlashini kuting.\n\n📝 <b>Mavzuni yozing:</b>",
-        parse_mode="HTML"
-    )
-
-@dp.callback_query(F.data == "referral")
-async def cb_referral(call: CallbackQuery):
-    link = f"https://t.me/suvtekin_slayd_bot?start={call.from_user.id}"
-    await call.message.edit_text(
-        f"👥 <b>Do'st taklif</b>\n\n"
-        f"Sizning link:\n<code>{link}</code>\n\n"
-        f"🎁 Do'st kirsa — ikkalangizga +1 bepul slayd!",
-        parse_mode="HTML"
-    )
-
-@dp.callback_query(F.data == "kabinet")
-async def cb_kabinet(call: CallbackQuery):
-    db = get_user(call.from_user.id)
-    free = db[2] if db else 0
-    orders = db[3] if db else 0
-    await call.message.edit_text(
-        f"👤 <b>Kabinet</b>\n\n"
-        f"🆔 ID: <code>{call.from_user.id}</code>\n"
-        f"💧 Bepul: <b>{free} ta</b>\n"
-        f"📦 Buyurtmalar: <b>{orders} ta</b>",
-        parse_mode="HTML"
-    )
-
-@dp.message(Order.mavzu)
-async def get_mavzu(message: Message, state: FSMContext):
-    await state.update_data(mavzu=message.text)
-    rows = []
-    row = []
-    for k, v in SHABLONLAR.items():
-        row.append(InlineKeyboardButton(text=v["nomi"], callback_data=f"sh_{k}"))
-        if len(row) == 2:
-            rows.append(row)
-            row = []
-    if row: rows.append(row)
-    await message.answer(
-        f"✅ Mavzu: <b>{message.text}</b>\n\n"
-        f"🎨 <b>20 ta shablondan birini tanlang:</b>\n"
-        f"<i>(Biz 3 xil dizayn yuboramiz!)</i>",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
-    )
-
-@dp.callback_query(F.data.startswith("sh_"))
-async def cb_shablon(call: CallbackQuery, state: FSMContext):
-    shablon_key = call.data.replace("sh_", "")
-    data = await state.get_data()
-    mavzu = data.get("mavzu", "")
-    soni = data.get("soni", 1)
-    bet = data.get("bet", 5)
-    shrift = data.get("shrift", "f1")
-
-    await call.message.edit_text(
-        f"⏳ <b>Slaydlar yaratilmoqda...</b>\n\n"
-        f"📝 Mavzu: {mavzu}\n"
-        f"📊 Slayd: {soni} ta | 📄 Bet: {bet} ta\n"
-        f"🤖 AI kontent tayyorlamoqda...",
-        parse_mode="HTML"
-    )
-
-    try:
-        slides = generate_content(mavzu, soni, bet)
-        if not slides:
-            await bot.send_message(call.from_user.id, "❌ Xatolik! Qayta urinib ko'ring.")
-            return
-
-        keys = list(SHABLONLAR.keys())
-        chosen = [shablon_key]
-        other = [k for k in keys if k != shablon_key]
-        chosen += random.sample(other, min(2, len(other)))
-
-        for key in chosen:
-            pptx = make_pptx(mavzu, slides, key, shrift, bet)
-            sh_name = SHABLONLAR[key]["nomi"]
-            await bot.send_document(
-                call.from_user.id,
-                document=BufferedInputFile(pptx.read(), filename=f"{mavzu[:15]}_{sh_name}.pptx"),
-                caption=f"✅ <b>{mavzu}</b>\n🎨 {sh_name}\n📄 {len(slides)} slayd | {bet} bet\n\n💧 @suvtekin_slayd_bot",
-                parse_mode="HTML"
-            )
-
-        if data.get("paket") == "bepul":
-            use_free(call.from_user.id)
-        add_order(call.from_user.id)
-        await state.clear()
-
-        db = get_user(call.from_user.id)
-        free = db[2] if db else 0
-        await bot.send_message(
-            call.from_user.id,
-            "🎉 <b>Tayyor!</b> Slaydlaringiz yuborildi!\n\n👇 Yana buyurtma:",
-            parse_mode="HTML",
-            reply_markup=main_kb(free)
-        )
-
-    except Exception as e:
-        await bot.send_message(call.from_user.id, f"❌ Xatolik: {e}")
-
-@dp.message(Command("tolov"))
-async def cmd_tolov(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    parts = message.text.split()
-    if len(parts) < 3:
-        await message.answer("Format: /tolov <user_id> <paket>")
-        return
-    uid = int(parts[1])
-    paket = parts[2]
-    soni = PAKETLAR.get(paket, {}).get("soni", 0)
-    update_free(uid, soni)
-    await bot.send_message(
-        uid,
-        f"✅ <b>To'lovingiz tasdiqlandi!</b>\n\n"
-        f"🎁 <b>{soni} ta slayd</b> qo'shildi!\n\n"
-        f"📝 Mavzuni yozing:",
-        parse_mode="HTML"
-    )
-    await message.answer(f"✅ {uid} ga {soni} ta slayd berildi!")
-
-async def main():
-    init_db()
-    print("✅ SuvTekin Slayd Bot ishga tushdi!")
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+function GuideStep({ number, title, desc }: { number: string, title: string, desc: string }) {
+  return (
+    <div className="bg-indigo-600 p-4 rounded-xl text-white flex flex-col items-center text-center gap-1 shadow-lg shadow-indigo-200">
+      <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-black">{number}</span>
+      <h5 className="text-sm font-bold">{title}</h5>
+      <p className="text-[10px] opacity-80 font-medium leading-tight">{desc}</p>
+    </div>
+  );
+}"
